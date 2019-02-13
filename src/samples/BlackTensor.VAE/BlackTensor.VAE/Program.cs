@@ -12,8 +12,8 @@ namespace BlackTensor.VAE
     {
         static void Main(string[] args)
         {
-            string image_file = "C:\\Users\\gxii-align\\Desktop\\train-images.idx3-ubyte";
-            string label_file = "C:\\Users\\gxii-align\\Desktop\\train-labels.idx1-ubyte";
+            string image_file = ".\\train-images.idx3-ubyte";
+            string label_file = ".\\train-labels.idx1-ubyte";
 
             FileStream fs1 = new FileStream(image_file, FileMode.Open);
             BinaryReader byte_image = new BinaryReader(fs1);
