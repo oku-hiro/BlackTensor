@@ -39,7 +39,7 @@ namespace BlackTensor
         int[] norm_process;
         int[] activation_process;
         int[] parameter = new int[4];
-        double[][] flow;
+        public double[][] flow;
         double[][] teacher;
         double[][] grad;
         double[][] delta;

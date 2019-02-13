@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28010.2026
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlackTensor.VAE", "BlackTensor.VAE\BlackTensor.VAE.csproj", "{04D6072E-46FC-4052-B8B3-EEA20476F11A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlackTensor", "..\..\BlackTensor\BlackTensor\BlackTensor.csproj", "{C22E41AF-F207-4A52-A354-376D291EBE11}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{04D6072E-46FC-4052-B8B3-EEA20476F11A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04D6072E-46FC-4052-B8B3-EEA20476F11A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04D6072E-46FC-4052-B8B3-EEA20476F11A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{04D6072E-46FC-4052-B8B3-EEA20476F11A}.Debug|x64.Build.0 = Debug|Any CPU
+		{04D6072E-46FC-4052-B8B3-EEA20476F11A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04D6072E-46FC-4052-B8B3-EEA20476F11A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{04D6072E-46FC-4052-B8B3-EEA20476F11A}.Release|x64.ActiveCfg = Release|Any CPU
+		{04D6072E-46FC-4052-B8B3-EEA20476F11A}.Release|x64.Build.0 = Release|Any CPU
+		{C22E41AF-F207-4A52-A354-376D291EBE11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C22E41AF-F207-4A52-A354-376D291EBE11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C22E41AF-F207-4A52-A354-376D291EBE11}.Debug|x64.ActiveCfg = Debug|x64
+		{C22E41AF-F207-4A52-A354-376D291EBE11}.Debug|x64.Build.0 = Debug|x64
+		{C22E41AF-F207-4A52-A354-376D291EBE11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C22E41AF-F207-4A52-A354-376D291EBE11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C22E41AF-F207-4A52-A354-376D291EBE11}.Release|x64.ActiveCfg = Release|x64
+		{C22E41AF-F207-4A52-A354-376D291EBE11}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0990F3D5-D147-4703-A70B-D986C21BB5E3}
+	EndGlobalSection
+EndGlobal
