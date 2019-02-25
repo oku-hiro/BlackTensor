@@ -12,8 +12,8 @@ namespace BlackTensor.VAE
     {
         static void Main(string[] args)
         {
-            string image_file = "C:\\Users\\gxii-align\\Desktop\\train-images.idx3-ubyte";
-            string label_file = "C:\\Users\\gxii-align\\Desktop\\train-labels.idx1-ubyte";
+            string image_file = ".train-images.idx3-ubyte";
+            string label_file = ".train-labels.idx1-ubyte";
 
             FileStream fs1 = new FileStream(image_file, FileMode.Open);
             BinaryReader byte_image = new BinaryReader(fs1);
@@ -63,28 +63,18 @@ namespace BlackTensor.VAE
                 }
             }
 
-            double[][][] image_data = new double[10][][];
-            for (int k = 0; k < 10; k++)
+            double[][] image_data = new double[5000][];
+            for (int i = 0; i < 5000; i++)
             {
-                image_data[k] = new double[500][];
-                for (int j = 0; j < 500; j++)
-                {
-                    image_data[k][j] = new double[784];
-                }
+                image_data[i] = new double[784];
             }
 
-            int[] step = new int[10];
-            for (int k = 0; k < 6000; k++)
+            for (int j = 0; j < 6000; j++)
             {
-                int s = label_data2[k];
-                if (step[s] < 500)
+                for (int i = 0; i < 784; i++)
                 {
-                    for (int i = 0; i < 784; i++)
-                    {
-                        image_data[s][step[s]][i] = byte_data2[k][i];
-                    }
+                    image_data[j][i] = byte_data2[j][i];
                 }
-                step[s] += 1;
             }
 
             LearningParameter lp;
@@ -106,19 +96,14 @@ namespace BlackTensor.VAE
                 lp.input_data[i] = new double[784];
             }
 
-            int m = 0;
-            for (int k = 0; k < 500; k++)
+            for (int j = 0; j < 5000; j++)
             {
-                for (int j = 0; j < 10; j++)
+                for (int i = 0; i < 784; i++)
                 {
-                    for (int i = 0; i < 784; i++)
-                    {
-                        lp.input_data[m][i] = image_data[j][k][i];
-                        lp.input_data[m][i] /= 255.0;
-                        lp.output_data[m][i] = image_data[j][k][i];
-                        lp.output_data[m][i] /= 255.0;
-                    }
-                    m += 1;
+                    lp.input_data[j][i] = image_data[j][i];
+                    lp.input_data[j][i] /= 255.0;
+                    lp.output_data[j][i] = image_data[j][i];
+                    lp.output_data[j][i] /= 255.0;
                 }
             }
 
@@ -140,37 +125,24 @@ namespace BlackTensor.VAE
 
             alg.Learning(lp);
 
-            Bitmap[] map = new Bitmap[lp.batch_sample];
-            for (int i = 0; i < lp.batch_sample; i++)
+            double[] test = new double[784];
+            for (int i = 0; i < 784; i++)
             {
-                map[i] = new Bitmap(28, 28);
+                test[i] = image_data[0][i];
+                test[i] = 255.0;
             }
 
-            for (int k = 0; k < lp.batch_sample; k++)
+            double[] output = alg.Evaluate(test);
+            Bitmap map = new Bitmap(28, 28);
+            for (int j = 0; j < 28; j++)
             {
-                for (int j = 0; j < 28; j++)
+                for (int i = 0; i < 28; i++)
                 {
-                    for (int i = 0; i < 28; i++)
-                    {
-                        int p = i + j * 28;
-
-                        int d = (int)(255 * alg.flow[k][p] + 0.5);
-
-                        if (d < 0)
-                        {
-                            d = 0;
-                        }
-
-                        if (d > 255)
-                        {
-                            d = 255;
-                        }
-
-                        map[k].SetPixel(i, j, Color.FromArgb(d, d, d));
-                    }
+                    int d = (int)(255.0 * output[i] + 0.5);
+                    map.SetPixel(i, j, Color.FromArgb(d, d, d));
                 }
-                map[k].Save(k.ToString() + ".png");
             }
+            map.Save("test.png");
         }
     }
 }
