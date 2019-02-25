@@ -26,6 +26,8 @@ namespace BlackTensor
         int gd_stock = 0;
         int ac_stock = 0;
 
+        int epochs;
+        int first_unit;
         int input_unit;
         int output_unit;
         int input_channel;
@@ -36,13 +38,18 @@ namespace BlackTensor
         double lr;
         string stock_sequence;
         string stock_parameter;
+
+        int[] batch;
         int[] norm_process;
         int[] activation_process;
         int[] parameter = new int[4];
+
         public double[][] flow;
         double[][] teacher;
         double[][] grad;
         double[][] delta;
+        double[] total_error;
+        double[] output;
         string[] sequence;
 
         public BlackTensor()
@@ -179,6 +186,8 @@ namespace BlackTensor
 
         public void Setting()
         {
+            batch = new int[batch_sample];
+            total_error = new double[epochs];
             sequence = new string[sq_stock];
 
             Extract_Sequence();
@@ -287,6 +296,7 @@ namespace BlackTensor
                 delta[i] = new double[max_unit];
                 teacher[i] = new double[output_unit];
             }
+            output = new double[output_unit];
         }
 
         public void Learning(LearningParameter lp)
@@ -297,10 +307,8 @@ namespace BlackTensor
             input_y = lp.input_y;
             input_unit = lp.dense_unit + lp.input_channel * lp.input_x * lp.input_y;
             batch_sample = lp.batch_sample;
-
-            int first_unit = input_unit;
-            int[] batch = new int[lp.batch_sample];
-            double[] total_error = new double[lp.epochs];
+            epochs = lp.epochs;
+            first_unit = input_unit;
 
             Setting();
             Summary();
@@ -369,7 +377,24 @@ namespace BlackTensor
                 sw.WriteLine(total_error[i]);
             }
             sw.Close();
+        }
 
+        public double[] Evaluate(double[] input_data)
+        {
+            batch_sample = 1;
+            for (int i = 0; i < first_unit; i++)
+            {
+                flow[0][i] = input_data[i];
+            }
+
+            Network();
+
+            for (int i = 0; i < output_unit; i++)
+            {
+                output[i] = flow[0][i];
+            }
+
+            return output;
         }
 
         private void ADAM()

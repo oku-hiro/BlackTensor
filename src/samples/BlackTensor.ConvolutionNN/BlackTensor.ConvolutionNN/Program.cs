@@ -90,7 +90,7 @@ namespace BlackTensor.ConvolutionNN
             LearningParameter lp;
             lp.batch_sample = 10;
             lp.dense_unit = 0;
-            lp.epochs = 100000;
+            lp.epochs = 10;
             lp.data_sample = 5000;
             lp.input_channel = 1;
             lp.input_x = 28;
