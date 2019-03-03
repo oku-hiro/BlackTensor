@@ -57,7 +57,7 @@ namespace BlackTensor
             this.OutputUnit = outputUnit;
             this.BatchSample = batchSample;
 
-            this.Initialize();
+            this.Initialize(inputOffset, outputOffset);
         }
 
         private void Initialize(int inputOffset = 0, int outputOffset = 0)

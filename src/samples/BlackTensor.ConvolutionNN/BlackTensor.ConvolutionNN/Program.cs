@@ -12,10 +12,10 @@ namespace BlackTensor.ConvolutionNN
     {
         static void Main(string[] args)
         {
-            string image_file = ".train-images.idx3-ubyte";
-            string label_file = ".train-labels.idx1-ubyte";
-            string t_image_file = ".t10k-images.idx3-ubyte";
-            string t_label_file = ".t10k-labels.idx1-ubyte";
+            string image_file = "train-images.idx3-ubyte";
+            string label_file = "train-labels.idx1-ubyte";
+            string t_image_file = "t10k-images.idx3-ubyte";
+            string t_label_file = "t10k-labels.idx1-ubyte";
 
             FileStream fs1 = new FileStream(image_file, FileMode.Open);
             BinaryReader byte_image = new BinaryReader(fs1);

@@ -30,18 +30,15 @@ namespace BlackTensor
         /// <param name="outputCount">出力の2次元目の数</param>
         public InputOutpuData(int dataCount, int inputCount, int outputCount)
         {
-            for (var i = 0; i < dataCount; i++)
+            this.Input = new double[dataCount][];
+            this.Output = new double[dataCount][];
+            for (var i = 0; i < this.Input.GetLength(0); i++)
             {
-                this.Input = new double[dataCount][];
-                this.Output = new double[dataCount][];
-                for (var j = 0; j < inputCount; j++)
-                {
-                    this.Input[i] = new double[inputCount];
-                }
-                for (var j = 0; j < outputCount; j++)
-                {
-                    this.Output[i] = new double[outputCount];
-                }
+                this.Input[i] = new double[inputCount];
+            }
+            for (var i = 0; i < this.Output.GetLength(0); i++)
+            {
+                this.Output[i] = new double[outputCount];
             }
         }
 

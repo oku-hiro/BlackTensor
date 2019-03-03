@@ -670,7 +670,7 @@ namespace BlackTensor
 
                 for (var j = 0; j < result.GetLength(0); j++)
                 {
-                    for (var k = 0; k < result[j].Length; k++)
+                    for (var k = 0; k < result[j].Length - offset; k++)
                     {
                         this._delta[j][k] = result[j][k + offset];
                     }
@@ -786,7 +786,8 @@ namespace BlackTensor
 
         private void MaxUnit(int unit1, int unit2)
         {
-            this._maxUnit = Math.Max(unit1, unit2);
+            var max = Math.Max(unit1, unit2);
+            this._maxUnit = Math.Max(this._maxUnit, max);
         }
 
         private void Summary()
