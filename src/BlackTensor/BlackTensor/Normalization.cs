@@ -6,194 +6,210 @@ using System.Threading.Tasks;
 
 namespace BlackTensor
 {
-    class Normalization
+    public class Normalization : BaseAnalysis
     {
-        public int input_unit;
-        public int input_channel;
-        public int output_unit;
-        public int output_channel;
-        public int input_x;
-        public int input_y;
-        public int size_x;
-        public int size_y;
-        public int batch_sample;
+        #region 定数
+        private readonly double _eps = Math.Pow(10.0, -8.0);
+        #endregion
 
-        public double[][] input;
-        public double[][] output;
-        public double[][] next_delta;
-        public double[][] this_delta;
-        public double[][] pre_grad;
-        public double[][] this_grad;
+        #region プロパティ
+        public Int2D Input2D { get; }
+        public Int2D Size2D { get; }
 
-        double eps = Math.Pow(10.0, -8.0);
-        int input_xy;
-        int size_xy;
+        public int InputChannel { get; }
+        public int OutputChannel { get; }
+        #endregion
 
-        public Normalization()
-        {}
+        private readonly int _inputXy;
 
-        public void Setting()
+        #region 初期化
+        /// <inheritdoc />
+        /// <summary>
+        /// 初期化します。
+        /// </summary>
+        public Normalization() {}
+
+        /// <inheritdoc />
+        /// <summary>
+        /// 指定した値を使用して、初期化します。
+        /// </summary>
+        /// <param name="inputOutputUnit"></param>
+        /// <param name="batchSample"></param>
+        /// <param name="inputX"></param>
+        /// <param name="inputY"></param>
+        /// <param name="sizeX"></param>
+        /// <param name="sizeY"></param>
+        /// <param name="inputChannel"></param>
+        public Normalization(int inputOutputUnit, int batchSample, int inputX, int inputY, int sizeX, int sizeY, int inputChannel) : base(inputOutputUnit, batchSample)
         {
-            input_xy = input_x * input_y;
-            size_xy = size_x * size_y;
-            output_channel = input_channel;
-            output_unit = input_unit;
+            this.Input2D = new Int2D(inputX, inputY);
+            this.Size2D = new Int2D(sizeX, sizeY);
 
-            input = new double[batch_sample][];
-            output = new double[batch_sample][];
-            next_delta = new double[batch_sample][];
-            this_delta = new double[batch_sample][];
-            pre_grad = new double[batch_sample][];
-            this_grad = new double[batch_sample][];
+            this.InputChannel = inputChannel;
+            this.OutputChannel = inputChannel;
 
-            for (int i = 0; i < batch_sample; i++)
-            {
-                input[i] = new double[input_unit];
-                output[i] = new double[output_unit];
-                next_delta[i] = new double[input_unit];
-                this_delta[i] = new double[output_unit];
-                pre_grad[i] = new double[input_unit];
-                this_grad[i] = new double[output_unit];
-            }
+            this._inputXy = this.Input2D.X * this.Input2D.Y;
         }
+        #endregion
 
-        public void Batch1D()
+        #region メソッド
+        public Tuple<double[][], double[][]> Batch1D(double[][] flow, double[][] grad)
         {
-            for (int i = 0; i < input_unit; i++)
-            {
-                double average = 0.0;
-                for (int b = 0; b < batch_sample; b++)
-                {
-                    average += input[b][i];
-                }
-                average /= batch_sample;
+            this.SetInputGradData(flow, grad);
 
-                double sigma1 = 0.0;
-                double sigma2 = 0.0;
-                for (int b = 0; b < batch_sample; b++)
+            for (var i = 0; i < this.InputUnit; i++)
+            {
+                var average = 0.0;
+                for (var b = 0; b < this.InputOutputData.Input.GetLength(0); b++)
                 {
-                    sigma1 = input[b][i] - average;
+                    average += this.InputOutputData.Input[b][i];
+                }
+                average /= this.BatchSample;
+
+                var sigma1 = 0.0;
+                var sigma2 = 0.0;
+                for (var b = 0; b < this.InputOutputData.Input.GetLength(0); b++)
+                {
+                    sigma1 = this.InputOutputData.Input[b][i] - average;
                     sigma2 += sigma1 * sigma1;
                 }
-                sigma2 /= batch_sample;
-                sigma1 = Math.Sqrt(sigma2 + eps);
+                sigma2 /= this.BatchSample;
+                sigma1 = Math.Sqrt(sigma2 + _eps);
 
-                for (int b = 0; b < batch_sample; b++)
+                for (var b = 0; b < this.BatchSample; b++)
                 {
-                    output[b][i] = (input[b][i] - average) / sigma1;
-                    this_grad[b][i] = 1.0;
+                    this.InputOutputData.Output[b][i] = (this.InputOutputData.Input[b][i] - average) / sigma1;
+                    this.GradData.Output[b][i] = 1.0;
                 }
             }
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void Subtractive()
+        public Tuple<double[][], double[][]> Subtractive(double[][] flow, double[][] grad)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.SetInputGradData(flow, grad);
+
+            for (var b = 0; b < this.BatchSample; b++)
             {
-                for (int k = 0; k < input_channel; k++)
+                for (var k = 0; k < InputChannel; k++)
                 {
-                    int ki = k * input_xy;
-                    for (int j = 0; j < input_y; j++)
+                    var ki = k * _inputXy;
+                    for (var j = 0; j < this.Input2D.Y; j++)
                     {
-                        for (int i = 0; i < input_x; i++)
+                        for (var i = 0; i < this.Input2D.X; i++)
                         {
                             double pixel = 0;
                             double average = 0;
-                            for (int y = -size_y / 2; y <= size_y / 2; y++)
+                            for (var y = -this.Size2D.Y / 2; y <= this.Size2D.Y / 2; y++)
                             {
-                                for (int x = -size_x / 2; x <= size_x / 2; x++)
+                                for (var x = -this.Size2D.X / 2; x <= this.Size2D.X / 2; x++)
                                 {
-                                    if (0 <= j + y && j + y < input_y)
-                                    {
-                                        if (0 <= i + x && i + x < input_x)
-                                        {
-                                            average += input[b][(i + x) + (j + y) * input_x + ki];
-                                            pixel += 1;
-                                        }
-                                    }
+                                    if (0 > j + y || j + y >= this.Input2D.Y) continue;
+                                    if (0 > i + x || i + x >= this.Input2D.X) continue;
+
+                                    average += this.InputOutputData.Input[b][(i + x) + (j + y) * this.Input2D.X + ki];
+                                    pixel++;
                                 }
                             }
                             average /= pixel;
-                            int p = i + j * input_x + ki;
-                            output[b][p] = input[b][p] - average;
-                            this_grad[b][p] = 1.0;
+                            var p = i + j * this.Input2D.X + ki;
+                            this.InputOutputData.Output[b][p] = this.InputOutputData.Input[b][p] - average;
+                            this.GradData.Output[b][p] = 1.0;
                         }
                     }
                 }
             }
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void Divisive()
+        public Tuple<double[][], double[][]> Divisive(double[][] flow, double[][] grad)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.SetInputGradData(flow, grad);
+
+            for (var b = 0; b < this.BatchSample; b++)
             {
-                for (int k = 0; k < input_channel; k++)
+                for (var k = 0; k < InputChannel; k++)
                 {
-                    int ki = k * input_xy;
-                    for (int j = 0; j < input_y; j++)
+                    var ki = k * _inputXy;
+                    for (var j = 0; j < this.Input2D.Y; j++)
                     {
-                        for (int i = 0; i < input_x; i++)
+                        for (var i = 0; i < this.Input2D.X; i++)
                         {
-                            double pixel = 0.0;
-                            double average = 0.0;
-                            for (int y = -size_y / 2; y <= size_y / 2; y++)
+                            var pixel = 0.0;
+                            var average = 0.0;
+                            for (var y = -this.Size2D.Y / 2; y <= this.Size2D.Y / 2; y++)
                             {
-                                for (int x = -size_x / 2; x <= size_x / 2; x++)
+                                for (var x = -this.Size2D.X / 2; x <= this.Size2D.X / 2; x++)
                                 {
-                                    if (0 <= j + y && j + y < input_y)
-                                    {
-                                        if (0 <= i + x && i + x < input_x)
-                                        {
-                                            average += input[b][(i + x) + (j + y) * input_x + ki];
-                                            pixel += 1;
-                                        }
-                                    }
+                                    if (0 > j + y || j + y >= this.Input2D.Y) continue;
+                                    if (0 > i + x || i + x >= this.Input2D.X) continue;
+
+                                    average += this.InputOutputData.Input[b][(i + x) + (j + y) * this.Input2D.X + ki];
+                                    pixel += 1;
                                 }
                             }
                             average /= pixel;
 
-                            double sigma1 = 0.0;
-                            double sigma2 = 0.0;
-                            for (int y = -size_y / 2; y <= size_y / 2; y++)
+                            var sigma1 = 0.0;
+                            var sigma2 = 0.0;
+                            for (var y = -this.Size2D.Y / 2; y <= this.Size2D.Y / 2; y++)
                             {
-                                for (int x = -size_x / 2; x <= size_x / 2; x++)
+                                for (var x = -this.Size2D.X / 2; x <= this.Size2D.X / 2; x++)
                                 {
-                                    if (0 <= j + y && j + y < input_y)
-                                    {
-                                        if (0 <= i + x && i + x < input_x)
-                                        {
-                                            sigma1 = input[b][(i + x) + (j + y) * input_x + ki] - average;
-                                            sigma2 += sigma1 * sigma1;
-                                        }
-                                    }
+                                    if (0 > j + y || j + y >= this.Input2D.Y) continue;
+                                    if (0 > i + x || i + x >= this.Input2D.X) continue;
+
+                                    sigma1 = this.InputOutputData.Input[b][(i + x) + (j + y) * this.Input2D.X + ki] - average;
+                                    sigma2 += sigma1 * sigma1;
                                 }
                             }
 
                             sigma2 /= pixel;
                             sigma1 = Math.Sqrt(sigma2);
-                            if (sigma1 < 1.0)
-                            {
-                                sigma1 = 1.0;
-                            }
+                            if (sigma1 < 1.0) sigma1 = 1.0;
 
-                            int p = i + j * input_x + ki;
-                            output[b][p] = (input[b][p] - average) / sigma1;
-                            this_grad[b][p] = 1.0;
+                            var p = i + j * this.Input2D.X + ki;
+                            this.InputOutputData.Output[b][p] = (this.InputOutputData.Input[b][p] - average) / sigma1;
+                            this.GradData.Output[b][p] = 1.0;
                         }
                     }
                 }
             }
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void Delta_Propagation()
+        public double[][] DeltaPropagation(double[][] delta)
         {
-            Parallel.For(0, batch_sample, b =>
+            this.DeltaData.SetInputData(delta);
+
+            Parallel.For(0, this.DeltaData.Output.GetLength(0), b =>
             {
-                for (int i = 0; i < input_unit; i++)
+                for (var i = 0; i < this.DeltaData.Output[b].Length; i++)
                 {
-                    next_delta[b][i] = this_delta[b][i] * pre_grad[b][i];
+                    this.DeltaData.Output[b][i] = this.DeltaData.Input[b][i] * this.GradData.Input[b][i];
                 }
             });
+
+            return this.DeltaData.Output;
+        }
+        #endregion
+
+        /// <summary>
+        /// 内容を表す文字列を返します。
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(nameof(Normalization));
+            sb.AppendLine($"Input:({this.InputChannel},{this.Input2D.X},{this.Input2D.Y})");
+            sb.AppendLine($"Filter:({this.Size2D.X},{this.Size2D.Y})");
+            sb.Append($"Output:({this.OutputChannel},{this.Input2D.X},{this.Input2D.Y})");
+
+            return sb.ToString();
         }
     }
 }

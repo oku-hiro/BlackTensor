@@ -60,11 +60,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Activation.cs" />
+    <Compile Include="BaseAnalysis.cs" />
     <Compile Include="BlackTensor.cs" />
-    <Compile Include="Conv2d.cs" />
-    <Compile Include="Conv2dTranspose.cs" />
+    <Compile Include="Conv2D.cs" />
+    <Compile Include="Conv2DTranspose.cs" />
     <Compile Include="Dense.cs" />
     <Compile Include="GaussianDistribution.cs" />
+    <Compile Include="InputOutpuData.cs" />
+    <Compile Include="Int2D.cs" />
     <Compile Include="LearningParameter.cs" />
     <Compile Include="Normalization.cs" />
     <Compile Include="Pooling.cs" />

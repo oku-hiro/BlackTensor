@@ -1,75 +1,83 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace BlackTensor
 {
-    class GaussianDistribution
+    public class GaussianDistribution : BaseAnalysis
     {
-        public int input_unit;
-        public int output_unit;
-        public int batch_sample;
+        #region 定数
+        private readonly Random _rnd = new Random();
+        private const double Pi = Math.PI;
+        #endregion 
 
-        public double[][] input;
-        public double[][] output;
-        public double[][] next_delta;
-        public double[][] this_delta;
-        public double[][] pre_grad;
-        public double[][] this_grad;
+        #region 初期化
+        /// <inheritdoc />
+        /// <summary>
+        /// 初期化します。
+        /// </summary>
+        public GaussianDistribution() {}
+        /// <inheritdoc />
+        /// <summary>
+        /// 指定した値を使用して、初期化します。
+        /// </summary>
+        /// <param name="inputUnit"></param>
+        /// <param name="batchSample"></param>
+        public GaussianDistribution(int inputUnit, int batchSample) : base(inputUnit, inputUnit/2, batchSample) { }
+        #endregion
 
-        Random rnd = new Random();
-        double pi = Math.PI;
-
-        public GaussianDistribution()
-        {}
-
-        public void Setting()
+        #region メソッド
+        public Tuple<double[][], double[][]> Process(double[][] flow, double[][] grad)
         {
-            input = new double[batch_sample][];
-            output = new double[batch_sample][];
-            next_delta = new double[batch_sample][];
-            this_delta = new double[batch_sample][];
-            pre_grad = new double[batch_sample][];
-            this_grad = new double[batch_sample][];
+            this.SetInputGradData(flow, grad);
 
-            for (int i = 0; i < batch_sample; i++)
+            for (var b = 0; b < this.BatchSample; b++)
             {
-                input[i] = new double[input_unit];
-                output[i] = new double[output_unit];
-                next_delta[i] = new double[input_unit];
-                this_delta[i] = new double[output_unit];
-                pre_grad[i] = new double[input_unit];
-                this_grad[i] = new double[output_unit];
-            }
-        }
-
-        public void Process()
-        {
-            for (int j = 0; j < batch_sample; j++)
-            {
-                double z = Math.Sqrt(-2.0 * Math.Log(rnd.NextDouble())) * Math.Cos(2.0 * pi * rnd.NextDouble());
-                for (int i = 0; i < input_unit / 2; i++)
+                var z = Math.Sqrt(-2.0 * Math.Log(_rnd.NextDouble())) * Math.Cos(2.0 * Pi * _rnd.NextDouble());
+                for (var i = 0; i < this.OutputUnit; i++)
                 {
-                    output[j][i] = input[j][2 * i] + z * input[j][2 * i + 1];
-                    this_grad[j][i] = 1.0;
+                    this.InputOutputData.Output[b][i] = this.InputOutputData.Input[b][2 * i] + z * this.InputOutputData.Input[b][2 * i + 1];
+                    this.GradData.Output[b][i] = 1.0;
                 }
             }
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void Delta_Propagation()
+        public double[][] DeltaPropagation(double[][] delta)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.DeltaData.SetInputData(delta);
+
+            for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
             {
-                for (int j = 0; j < input_unit / 2; j++)
+                for (var j = 0; j < this.DeltaData.Output[b].Length; j++)
                 {
-                    for (int i = 2 * j; i < 2 * (j + 1); i++)
+                    for (var i = 2 * j; i < 2 * (j + 1); i++)
                     {
-                        next_delta[b][i] = this_delta[b][j] * pre_grad[b][i];
+                        this.DeltaData.Output[b][i] = this.DeltaData.Input[b][j] * this.GradData.Input[b][i];
                     }
                 }
             }
+
+            return this.DeltaData.Output;
+        }
+        #endregion
+
+        /// <summary>
+        /// 内容を表す文字列を返します。
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(nameof(GaussianDistribution));
+            sb.AppendLine($"Input:{this.InputUnit}");
+            sb.Append($"Output:{this.OutputUnit}");
+
+            return sb.ToString();
         }
     }
 }

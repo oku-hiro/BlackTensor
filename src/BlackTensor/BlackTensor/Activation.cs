@@ -6,115 +6,118 @@ using System.Threading.Tasks;
 
 namespace BlackTensor
 {
-    class Activation
+    public class Activation : BaseAnalysis
     {
-        public int input_unit;
-        public int output_unit;
-        public int batch_sample;
+        #region 初期化
+        /// <inheritdoc />
+        /// <summary>
+        /// 初期化します。
+        /// </summary>
+        public Activation() { }
+        /// <inheritdoc />
+        /// <summary>
+        /// 指定した値を使用して、初期化します。
+        /// </summary>
+        /// <param name="inputOutputUnit"></param>
+        /// <param name="batchSample"></param>
+        public Activation(int inputOutputUnit, int batchSample) : base(inputOutputUnit, batchSample) { }
+        #endregion
 
-        public double[][] input;
-        public double[][] output;
-        public double[][] next_delta;
-        public double[][] this_delta;
-        public double[][] pre_grad;
-        public double[][] this_grad;
 
-        public void Setting()
+        #region メソッド
+        public Tuple<double[][], double[][]> Sigmoid(double[][] flow, double[][] grad)
         {
-            input = new double[batch_sample][];
-            output = new double[batch_sample][];
-            next_delta = new double[batch_sample][];
-            this_delta = new double[batch_sample][];
-            pre_grad = new double[batch_sample][];
-            this_grad = new double[batch_sample][];
+            this.SetInputGradData(flow, grad);
 
-            for (int i = 0; i < batch_sample; i++)
+            for (var b = 0; b < this.BatchSample; b++)
             {
-                input[i] = new double[input_unit];
-                output[i] = new double[output_unit];
-                next_delta[i] = new double[input_unit];
-                this_delta[i] = new double[output_unit];
-                pre_grad[i] = new double[input_unit];
-                this_grad[i] = new double[output_unit];
-            }
-        }
-
-        public void Sigmoid()
-        {
-            for (int b = 0; b < batch_sample; b++)
-            {
-                for (int i = 0; i < output_unit; i++)
+                for (var i = 0; i < this.OutputUnit; i++)
                 {
-                    output[b][i] = 1.0 / (1.0 + Math.Exp(-input[b][i]));
-                    this_grad[b][i] = output[b][i] * (1.0 - output[b][i]);
+                    this.InputOutputData.Output[b][i] = 1.0 / (1.0 + Math.Exp(-this.InputOutputData.Input[b][i]));
+                    this.GradData.Output[b][i] = this.InputOutputData.Output[b][i] * (1.0 - this.InputOutputData.Output[b][i]);
                 }
             }
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void ReLU()
+        public Tuple<double[][], double[][]> ReLU(double[][] flow, double[][] grad)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.SetInputGradData(flow, grad);
+
+            for (var b = 0; b < this.BatchSample; b++)
             {
-                for (int i = 0; i < output_unit; i++)
+                for (var i = 0; i < this.OutputUnit; i++)
                 {
-                    if (input[b][i] < 0.0)
+                    if (this.InputOutputData.Input[b][i] < 0.0)
                     {
-                        output[b][i] = 0.0;
-                        this_grad[b][i] = 0.0;
+                        this.InputOutputData.Output[b][i] = 0.0;
+                        this.GradData.Output[b][i] = 0.0;
                     }
                     else
                     {
-                        output[b][i] = input[b][i];
-                        this_grad[b][i] = 1.0;
+                        this.InputOutputData.Output[b][i] = this.InputOutputData.Input[b][i];
+                        this.GradData.Output[b][i] = 1.0;
                     }
                 }
             }
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void Tanh()
+        public Tuple<double[][], double[][]> Tanh(double[][] flow, double[][] grad)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.SetInputGradData(flow, grad);
+
+            for (var b = 0; b < this.BatchSample; b++)
             {
-                for (int i = 0; i < output_unit; i++)
+                for (var i = 0; i < this.OutputUnit; i++)
                 {
-                    output[b][i] = Math.Tanh(input[b][i]);
-                    this_grad[b][i] = 1.0 - output[b][i] * output[b][i];
+                    this.InputOutputData.Output[b][i] = Math.Tanh(this.InputOutputData.Input[b][i]);
+                    this.GradData.Output[b][i] = 1.0 - this.InputOutputData.Output[b][i] * this.InputOutputData.Output[b][i];
                 }
             }
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void Softmax()
+        public Tuple<double[][], double[][]> Softmax(double[][] flow, double[][] grad)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.SetInputGradData(flow, grad);
+
+            for (var b = 0; b < this.BatchSample; b++)
             {
-                for (int i = 0; i < output_unit; i++)
+                for (var i = 0; i < this.OutputUnit; i++)
                 {
-                    output[b][i] = Math.Exp(input[b][i]);
+                    this.InputOutputData.Output[b][i] = Math.Exp(this.InputOutputData.Input[b][i]);
                 }
 
-                double sum = 0.0;
-                for (int i = 0; i < output_unit; i++)
-                {
-                    sum += output[b][i];
-                }
+                var sum = this.InputOutputData.Output[b].Sum();
 
-                for (int i = 0; i < output_unit; i++)
+                for (var i = 0; i < this.OutputUnit; i++)
                 {
-                    output[b][i] /= sum;
-                    this_grad[b][i] = 1.0;
+                    this.InputOutputData.Output[b][i] /= sum;
+                    this.GradData.Output[b][i] = 1.0;
                 }
             }
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void Delta_Propagation()
+        public double[][] DeltaPropagation(double[][] deltaData)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.DeltaData.SetInputData(deltaData);
+
+            for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
             {
-                for (int i = 0; i < input_unit; i++)
+                for (var i = 0; i < this.DeltaData.Output[b].Length; i++)
                 {
-                    next_delta[b][i] = this_delta[b][i] * pre_grad[b][i];
+                    this.DeltaData.Output[b][i] = this.DeltaData.Output[b][i] * this.GradData.Input[b][i];
                 }
             }
+
+            return this.DeltaData.Output;
         }
+        #endregion
     }
 }

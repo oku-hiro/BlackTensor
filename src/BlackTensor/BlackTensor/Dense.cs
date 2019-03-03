@@ -7,146 +7,142 @@ using System.IO;
 
 namespace BlackTensor
 {
-    class Dense
+    public class Dense : BaseAnalysis
     {
-        public int input_unit;
-        public int output_unit;
-        public int batch_sample;
-        public double lr;
+        #region 定数
+        private const double Beta1 = 0.9;
+        private const double Beta2 = 0.999;
+        private const double Gamma = 0.99;
+        private readonly double _epsilon = Math.Pow(10.0, -8.0);
+        #endregion
 
-        public double[][] input;
-        public double[][] output;
-        public double[][] next_delta;
-        public double[][] this_delta;
-        public double[][] pre_grad;
-        public double[][] this_grad;
+        #region プロパティ
+        public double Lr { get; }
+        #endregion
 
-        double[][] w;
-        double[][] dw;
-        double[][] m;
-        double[][] v;
-        double[] u;
-       
-        const double beta1 = 0.9;
-        const double beta2 = 0.999;
-        const double gamma = 0.99;
-        double epsilon = Math.Pow(10.0, -8.0);
-        double b1, b2;
+        private readonly double[][] _w;
+        private readonly double[][] _dw;
+        private readonly double[][] _m;
+        private readonly double[][] _v;
 
+        private double _b1, _b2;
+
+        #region 初期化
+        /// <inheritdoc />
+        /// <summary>
+        /// 初期化します。
+        /// </summary>
         public Dense()
         {
-            b1 = beta1;
-            b2 = beta2;
+            _b1 = Beta1;
+            _b2 = Beta2;
         }
-
-        public void Setting()
+        /// <inheritdoc />
+        /// <summary>
+        /// 指定した値を使用して、初期化します。
+        /// </summary>
+        /// <param name="inputUnit"></param>
+        /// <param name="outputUnit"></param>
+        /// <param name="batchSample"></param>
+        /// <param name="lr"></param>
+        public Dense(int inputUnit, int outputUnit, int batchSample, double lr) : base(inputUnit, outputUnit, batchSample, 1)
         {
-            Random rnd = new Random();
-            input = new double[batch_sample][];
-            output = new double[batch_sample][];
-            next_delta = new double[batch_sample][];
-            this_delta = new double[batch_sample][];
-            pre_grad = new double[batch_sample][];
-            this_grad = new double[batch_sample][];
+            _b1 = Beta1;
+            _b2 = Beta2;
 
-            for (int i = 0; i < batch_sample; i++)
+            this.Lr = lr;
+
+            var inputUnitPlus = inputUnit + 1;
+
+            for (var i = 0; i < this.InputOutputData.Input.GetLength(0); i++)
             {
-                input[i] = new double[input_unit + 1];
-                input[i][0] = 1.0;
-                output[i] = new double[output_unit];
-                next_delta[i] = new double[input_unit + 1];
-                this_delta[i] = new double[output_unit];
-                pre_grad[i] = new double[input_unit + 1];
-                this_grad[i] = new double[output_unit];
+                this.InputOutputData.Input[i][0] = 1.0;
             }
 
-            u = new double[output_unit];
-            m = new double[output_unit][];
-            v = new double[output_unit][];
-            for (int i = 0; i < output_unit; i++)
+            this._m = new double[this.OutputUnit][];
+            this._v = new double[this.OutputUnit][];
+            this._w = new double[this.OutputUnit][];
+            this._dw = new double[this.OutputUnit][];
+            for (var i = 0; i < this.OutputUnit; i++)
             {
-                m[i] = new double[input_unit + 1];
-                v[i] = new double[input_unit + 1];
+                this._m[i] = new double[inputUnitPlus];
+                this._v[i] = new double[inputUnitPlus];
+                this._w[i] = new double[inputUnitPlus];
+                this._dw[i] = new double[inputUnitPlus];
             }
 
-            for (int j = 0; j < output_unit; j++)
+            var rnd = new Random();
+            for (var j = 0; j < this._w.GetLength(0); j++)
             {
-                for (int i = 0; i <= input_unit; i++)
+                for (var i = 0; i < this._w[j].Length; i++)
                 {
-                    m[j][i] = 0.0;
-                    v[j][i] = 0.0;
-                }
-            }
-
-            w = new double[output_unit][];
-            dw = new double[output_unit][];
-
-            for (int i = 0; i < output_unit; i++)
-            {
-                w[i] = new double[input_unit + 1];
-                dw[i] = new double[input_unit + 1];
-            }
-
-            for (int j = 0; j < output_unit; j++)
-            {
-                for (int i = 0; i <= input_unit; i++)
-                {
-                    w[j][i] = rnd.NextDouble();
-                    w[j][i] *= Math.Pow(10.0, -5.0); 
+                    _w[j][i] = rnd.NextDouble();
+                    _w[j][i] *= Math.Pow(10.0, -5.0);
                 }
             }
         }
+        #endregion
 
-        public void Process()
+        #region メソッド
+        public Tuple<double[][], double[][]> Process(double[][] flow, double[][] grad)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.SetInputGradData(flow, grad);
+
+            for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
             {
-                for (int j = 0; j < output_unit; j++)
+                for (var j = 0; j < this.InputOutputData.Output[b].Length; j++)
                 {
-                    output[b][j] = 0.0;
-                    for (int i = 0; i <= input_unit; i++)
+                    this.InputOutputData.Output[b][j] = 0.0;
+                    for (var i = 0; i < this.InputOutputData.Input[b].Length; i++)
                     {
-                        output[b][j] += w[j][i] * input[b][i];
+                        this.InputOutputData.Output[b][j] += _w[j][i] * this.InputOutputData.Input[b][i];
                     }
-                    this_grad[b][j] = 1.0;
+                    this.GradData.Output[b][j] = 1.0;
                 }
             }
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void Delta_Propagation()
+        public double[][] DeltaPropagation(double[][] delta)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.DeltaData.SetInputData(delta);
+
+            for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
             {
-                for (int j = 1; j <= input_unit; j++)
+                for (var j = 1; j < this.DeltaData.Output[b].Length; j++)
                 {
-                    next_delta[b][j] = 0.0;
-                    for (int i = 0; i < output_unit; i++)
+                    this.DeltaData.Output[b][j] = 0.0;
+                    
+                    for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
                     {
-                        next_delta[b][j] += w[i][j] * this_delta[b][i] * pre_grad[b][j];
+                        this.DeltaData.Output[b][j] += _w[i][j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][j];
                     }
                 }
             }
+
+            return this.DeltaData.Output;
         }
 
-        public void Back_Propagation()
+        public void BackPropagation()
         {
-            b1 *= beta1;
-            b2 *= beta2;
-            for (int j = 0; j < output_unit; j++)
+            _b1 *= Beta1;
+            _b2 *= Beta2;
+            for (var j = 0; j < this._dw.GetLength(0); j++)
             {
-                for (int i = 0; i <= input_unit; i++)
+                for (var i = 0; i < this._dw[j].Length; i++)
                 {
-                    dw[j][i] = 0.0;
+                    _dw[j][i] = 0.0;
                 }
             }
 
-            for (int b = 0; b < batch_sample; b++)
+            for (var b = 0; b < this.InputOutputData.Input.GetLength(0); b++)
             {
-                for (int j = 0; j < output_unit; j++)
+                for (var j = 0; j < this._dw.GetLength(0); j++)
                 {
-                    for (int i = 0; i <= input_unit; i++)
+                    for (var i = 0; i < this._dw[j].Length; i++)
                     {
-                        dw[j][i] += this_delta[b][j] * input[b][i];
+                        _dw[j][i] += this.DeltaData.Input[b][j] * this.InputOutputData.Input[b][i];
                     }
                 }
             }
@@ -154,53 +150,69 @@ namespace BlackTensor
 
         public void ADAM()
         {
-            for (int j = 0; j < output_unit; j++)
+            for (var j = 0; j < this._w.GetLength(0); j++)
             {
-                for (int i = 0; i <= input_unit; i++)
+                for (var i = 0; i < this._w[j].Length; i++)
                 {
-                    m[j][i] = beta1 * m[j][i] + (1.0 - beta1) * dw[j][i];
-                    v[j][i] = beta2 * v[j][i] + (1.0 - beta2) * dw[j][i] * dw[j][i];
-                    double a = m[j][i] / (1.0 - b1);
-                    double b = v[j][i] / (1.0 - b2);
-                    w[j][i] -= lr * a / (Math.Sqrt(b) + epsilon);
+                    _m[j][i] = Beta1 * _m[j][i] + (1.0 - Beta1) * _dw[j][i];
+                    _v[j][i] = Beta2 * _v[j][i] + (1.0 - Beta2) * _dw[j][i] * _dw[j][i];
+                    var a = _m[j][i] / (1.0 - _b1);
+                    var b = _v[j][i] / (1.0 - _b2);
+                    _w[j][i] -= Lr * a / (Math.Sqrt(b) + _epsilon);
                 }
             }
         }
 
         public void RmsProp()
         {
-            for (int j = 0; j < output_unit; j++)
+            for (var j = 0; j < this._w.GetLength(0); j++)
             {
-                for (int i = 0; i <= input_unit; i++)
+                for (var i = 0; i < this._w[j].Length; i++)
                 {
-                    m[j][i] = beta1 * m[j][i] + (1.0 - gamma) * dw[j][i] * dw[j][i];
-                    w[j][i] -= lr * dw[j][i] / (Math.Sqrt(m[j][i]) + epsilon);
+                    _m[j][i] = Beta1 * _m[j][i] + (1.0 - Gamma) * _dw[j][i] * _dw[j][i];
+                    _w[j][i] -= Lr * _dw[j][i] / (Math.Sqrt(_m[j][i]) + _epsilon);
                 }
             }
         }
 
         public void SGD()
         {
-            for (int j = 0; j < output_unit; j++)
+            for (var j = 0; j < this._w.GetLength(0); j++)
             {
-                for (int i = 0; i <= input_unit; i++)
+                for (var i = 0; i < this._w[j].Length; i++)
                 {
-                    w[j][i] -= lr * dw[j][i];
+                    _w[j][i] -= Lr * _dw[j][i];
                 }
             }
         }
 
         public void SaveParameter(int layer)
         {
-            StreamWriter sw = new StreamWriter("fc" + (layer + 1).ToString());
-            for (int j = 0; j < output_unit; j++)
+            using (var sw = new StreamWriter("fc" + (layer + 1)))
             {
-                for (int i = 0; i <= input_unit; i++)
+                foreach (var w1 in _w)
                 {
-                    sw.WriteLine(w[j][i]);
+                    foreach (var w2 in w1)
+                    {
+                        sw.WriteLine(w2);
+                    }
                 }
             }
-            sw.Close();
+        }
+        #endregion
+
+        /// <summary>
+        /// 内容を表す文字列を返します。
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(nameof(Dense));
+            sb.AppendLine($"Input:{this.InputUnit}");
+            sb.Append($"Output:{this.OutputUnit}");
+
+            return sb.ToString();
         }
     }
 }
