@@ -23,20 +23,19 @@ namespace BlackTensor
         public Activation(int inputOutputUnit, int batchSample) : base(inputOutputUnit, batchSample) { }
         #endregion
 
-
         #region メソッド
         public Tuple<double[][], double[][]> Sigmoid(double[][] flow, double[][] grad)
         {
             this.SetInputGradData(flow, grad);
 
-            for (var b = 0; b < this.BatchSample; b++)
+            Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
-                for (var i = 0; i < this.OutputUnit; i++)
+                for (var i = 0; i < this.InputOutputData.Output[b].Length; i++)
                 {
                     this.InputOutputData.Output[b][i] = 1.0 / (1.0 + Math.Exp(-this.InputOutputData.Input[b][i]));
                     this.GradData.Output[b][i] = this.InputOutputData.Output[b][i] * (1.0 - this.InputOutputData.Output[b][i]);
                 }
-            }
+            });
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
@@ -45,9 +44,9 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
-            for (var b = 0; b < this.BatchSample; b++)
+            Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
-                for (var i = 0; i < this.OutputUnit; i++)
+                for (var i = 0; i < this.InputOutputData.Output[b].Length; i++)
                 {
                     if (this.InputOutputData.Input[b][i] < 0.0)
                     {
@@ -60,7 +59,7 @@ namespace BlackTensor
                         this.GradData.Output[b][i] = 1.0;
                     }
                 }
-            }
+            });
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
@@ -69,14 +68,14 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
-            for (var b = 0; b < this.BatchSample; b++)
+            Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
-                for (var i = 0; i < this.OutputUnit; i++)
+                for (var i = 0; i < this.InputOutputData.Output[b].Length; i++)
                 {
                     this.InputOutputData.Output[b][i] = Math.Tanh(this.InputOutputData.Input[b][i]);
                     this.GradData.Output[b][i] = 1.0 - this.InputOutputData.Output[b][i] * this.InputOutputData.Output[b][i];
                 }
-            }
+            });
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
@@ -85,21 +84,21 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
-            for (var b = 0; b < this.BatchSample; b++)
+            Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
-                for (var i = 0; i < this.OutputUnit; i++)
+                for (var i = 0; i < this.InputOutputData.Output[b].Length; i++)
                 {
                     this.InputOutputData.Output[b][i] = Math.Exp(this.InputOutputData.Input[b][i]);
                 }
 
                 var sum = this.InputOutputData.Output[b].Sum();
 
-                for (var i = 0; i < this.OutputUnit; i++)
+                for (var i = 0; i < this.InputOutputData.Output[b].Length; i++)
                 {
                     this.InputOutputData.Output[b][i] /= sum;
                     this.GradData.Output[b][i] = 1.0;
                 }
-            }
+            });
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
@@ -108,13 +107,13 @@ namespace BlackTensor
         {
             this.DeltaData.SetInputData(deltaData);
 
-            for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
+            Parallel.For(0, this.DeltaData.Output.GetLength(0), b =>
             {
                 for (var i = 0; i < this.DeltaData.Output[b].Length; i++)
                 {
                     this.DeltaData.Output[b][i] = this.DeltaData.Output[b][i] * this.GradData.Input[b][i];
                 }
-            }
+            });
 
             return this.DeltaData.Output;
         }

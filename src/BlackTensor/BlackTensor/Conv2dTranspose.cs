@@ -280,7 +280,7 @@ namespace BlackTensor
                 _dBias[i] = 0.0;
             }
 
-            for (var k = 0; k < this.DeltaData.Input.GetLength(0); k++)
+            Parallel.For(0, this.DeltaData.Input.GetLength(0), k =>
             {
                 for (var j = 0; j < this.DeltaData.Input[k].Length; j++)
                 {
@@ -300,7 +300,7 @@ namespace BlackTensor
                         _dBias[j] += this.DeltaData.Input[k][i + j * _outputXy];
                     }
                 }
-            }
+            });
         }
 
         public void SGD()

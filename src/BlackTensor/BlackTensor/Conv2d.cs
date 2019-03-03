@@ -186,7 +186,7 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
-            for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
+            Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
                 for (var j = 0; j < this.InputOutputData.Output[b].Length; j++)
                 {
@@ -202,7 +202,7 @@ namespace BlackTensor
                     //Console.WriteLine(output[b][j]);
                     this.GradData.Output[b][j] = 1.0;
                 }
-            }
+            });
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output); 
         }
@@ -211,7 +211,7 @@ namespace BlackTensor
         {
             this.DeltaData.SetInputData(delta);
 
-            for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
+            Parallel.For(0, this.DeltaData.Output.GetLength(0), b =>
             {
                 for (var i = 0; i < this.DeltaData.Output[b].Length; i++)
                 {
@@ -228,7 +228,7 @@ namespace BlackTensor
                         }
                     }
                 }
-            }
+            });
 
             return this.DeltaData.Output;
         }
@@ -250,25 +250,29 @@ namespace BlackTensor
 
             for (var b = 0; b < this.BatchSample; b++)
             {
-                for (var j = 0; j < this._dFilter.Length; j++)
+                var b1 = b;
+                Parallel.For(0, this._dFilter.Length, j =>
                 {
-                    for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
+                    for (var i = 0; i < this.DeltaData.Input[b1].Length; i++)
                     {
                         if (_connection[i][j] > -1)
                         {
-                            _dFilter[j] += this.DeltaData.Input[b][i] * this.InputOutputData.Input[b][_connection[i][j]];
+                            _dFilter[j] += this.DeltaData.Input[b1][i] * this.InputOutputData.Input[b1][_connection[i][j]];
                         }
                     }
-                }
+                });
 
-                for (var j = 0; j < FilterChannel; j++)
+                var b2 = b;
+                Parallel.For(0, this._dBias.Length, j =>
                 {
                     for (var i = 0; i < _outputXy; i++)
                     {
-                        _dBias[j] += this.DeltaData.Input[b][i + j * _outputXy];
+                        _dBias[j] += this.DeltaData.Input[b2][i + j * _outputXy];
                     }
-                }
+                });
             }
+
+            
         }
 
         public void SGD()

@@ -34,7 +34,7 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
-            for (var b = 0; b < this.BatchSample; b++)
+            Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
                 var z = Math.Sqrt(-2.0 * Math.Log(_rnd.NextDouble())) * Math.Cos(2.0 * Pi * _rnd.NextDouble());
                 for (var i = 0; i < this.OutputUnit; i++)
@@ -42,7 +42,7 @@ namespace BlackTensor
                     this.InputOutputData.Output[b][i] = this.InputOutputData.Input[b][2 * i] + z * this.InputOutputData.Input[b][2 * i + 1];
                     this.GradData.Output[b][i] = 1.0;
                 }
-            }
+            });
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
@@ -51,7 +51,7 @@ namespace BlackTensor
         {
             this.DeltaData.SetInputData(delta);
 
-            for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
+            Parallel.For(0, this.DeltaData.Output.GetLength(0), b =>
             {
                 for (var j = 0; j < this.DeltaData.Output[b].Length; j++)
                 {
@@ -60,7 +60,7 @@ namespace BlackTensor
                         this.DeltaData.Output[b][i] = this.DeltaData.Input[b][j] * this.GradData.Input[b][i];
                     }
                 }
-            }
+            });
 
             return this.DeltaData.Output;
         }
