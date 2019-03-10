@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -30,10 +31,10 @@ namespace BlackTensor
         public Int2D Pad2D { get; }
         #endregion
 
-        private readonly int _inputXy;
-        private readonly int _outputXy;
+        //private readonly int _inputXy;
+        //private readonly int _outputXy;
 
-        private readonly int _padXy;
+        //private readonly int _padXy;
         private readonly int _padUnit;
 
         private readonly double[][] _padding;
@@ -89,14 +90,9 @@ namespace BlackTensor
             this.Pad2D = new Int2D(Upsampling * this.Input2D.X, Upsampling * this.Input2D.Y);
             this.Output2D = new Int2D(this.Pad2D.X, this.Pad2D.Y);
 
-            this._inputXy = this.Input2D.X * this.Input2D.Y;
-            this._outputXy = this.Output2D.X * this.Output2D.Y;
-            this._padXy = this.Pad2D.X * this.Pad2D.Y;
-            var filterXy = this.Filter2D.X * this.Filter2D.Y;
+            var filterElement = this.InputChannel * this.FilterChannel * this.Filter2D.Xy;
 
-            var filterElement = this.InputChannel * this.FilterChannel * filterXy;
-
-            _padUnit = this.InputChannel * _padXy;
+            _padUnit = this.InputChannel * this.Pad2D.Xy;
 
             _padding = new double[this.BatchSample][];
             _paddingDelta = new double[this.BatchSample][];
@@ -161,7 +157,7 @@ namespace BlackTensor
                     {
                         for (var ix = 0; ix < this.Pad2D.X; ix++)
                         {
-                            var f = ik * filterXy + fk * this.InputChannel * filterXy;
+                            var f = ik * this.Filter2D.Xy + fk * this.InputChannel * this.Filter2D.Xy;
                             for (var fy = -this.Filter2D.Y / 2; fy <= this.Filter2D.Y / 2; fy++)
                             {
                                 for (var fx = -this.Filter2D.X / 2; fx <= this.Filter2D.X / 2; fx++)
@@ -170,8 +166,8 @@ namespace BlackTensor
                                     {
                                         if (0 <= iy + fy && iy + fy < this.Pad2D.Y)
                                         {
-                                            var p = ix + iy * this.Output2D.X + fk * _outputXy;         //output unit
-                                            var q = (ix + fx) + (iy + fy) * this.Pad2D.X + ik * _padXy; //input unit
+                                            var p = ix + iy * this.Output2D.X + fk * this.Output2D.Xy;         //output unit
+                                            var q = (ix + fx) + (iy + fy) * this.Pad2D.X + ik * this.Pad2D.Xy; //input unit
                                             _connection[p][q] = f;
                                         }
                                     }
@@ -190,6 +186,9 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
+            var sw = new Stopwatch();
+            sw.Start();
+
             Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
                 for (var k = 0; k < this.InputChannel; k++)
@@ -198,7 +197,7 @@ namespace BlackTensor
                     {
                         for (var i = 0; i < this.Input2D.X; i++)
                         {
-                            _padding[b][Upsampling * (i + j * this.Pad2D.X) + k * _padXy] = this.InputOutputData.Input[b][i + j * this.Input2D.X + k * _inputXy];
+                            _padding[b][Upsampling * (i + j * this.Pad2D.X) + k * this.Pad2D.Xy] = this.InputOutputData.Input[b][i + j * this.Input2D.X + k * this.Input2D.Xy];
                         }
                     }
                 }
@@ -213,10 +212,13 @@ namespace BlackTensor
                             this.InputOutputData.Output[b][j] += _filter[_connection[j][i]] * _padding[b][i];
                         }
                     }
-                    this.InputOutputData.Output[b][j] += _bias[j / _outputXy];
+                    this.InputOutputData.Output[b][j] += _bias[j / this.Output2D.Xy];
                     this.GradData.Output[b][j] = 1.0;
                 }
             });
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Conv2DTranspose)}.{nameof(this.Process)}：{sw.ElapsedMilliseconds}[ms]");
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
@@ -233,7 +235,7 @@ namespace BlackTensor
                     {
                         for (var i = 0; i < this.Input2D.X; i++)
                         {
-                            _paddingGrad[b][Upsampling * (i + j * this.Pad2D.X) + k * _padXy] = this.GradData.Input[b][i + j * this.Input2D.X + k * _inputXy];
+                            _paddingGrad[b][Upsampling * (i + j * this.Pad2D.X) + k * this.Pad2D.Xy] = this.GradData.Input[b][i + j * this.Input2D.X + k * this.Input2D.Xy];
                         }
                     }
                 }
@@ -256,7 +258,7 @@ namespace BlackTensor
                     {
                         for (var i = 0; i < this.Input2D.X; i++)
                         {
-                            this.DeltaData.Output[b][i + j * this.Input2D.X + k * _inputXy] = _paddingDelta[b][Upsampling * (i + j * this.Pad2D.X) + k * _padXy];
+                            this.DeltaData.Output[b][i + j * this.Input2D.X + k * this.Input2D.Xy] = _paddingDelta[b][Upsampling * (i + j * this.Pad2D.X) + k * this.Pad2D.Xy];
                         }
                     }
                 }
@@ -295,9 +297,9 @@ namespace BlackTensor
 
                 for (var j = 0; j < this._dBias.Length; j++)
                 {
-                    for (var i = 0; i < _outputXy; i++)
+                    for (var i = 0; i < this.Output2D.Xy; i++)
                     {
-                        _dBias[j] += this.DeltaData.Input[k][i + j * _outputXy];
+                        _dBias[j] += this.DeltaData.Input[k][i + j * this.Output2D.Xy];
                     }
                 }
             }

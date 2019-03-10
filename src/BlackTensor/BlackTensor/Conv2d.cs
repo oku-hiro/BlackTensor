@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,14 +18,6 @@ namespace BlackTensor
         #endregion
 
         #region プロパティ
-        //public int InputUnit { get; }
-        //public int OutputUnit { get; }
-        //public int BatchSample { get; }
-
-        //public InputOutpuData InputOutputData { get; }
-        //public InputOutpuData DeltaData { get; }
-        //public InputOutpuData GradData { get; }
-
         public int InputChannel { get; }
         public int FilterChannel { get; }
         public int OutputChannel { get; }
@@ -37,7 +30,7 @@ namespace BlackTensor
         public Int2D Output2D { get; }
         #endregion
 
-        private readonly int _outputXy;
+        //private readonly int _outputXy;
 
         private readonly int _filterElement;
 
@@ -93,11 +86,7 @@ namespace BlackTensor
             this.Output2D = new Int2D(this.Input2D.X / stride, this.Input2D.Y / stride);
             
 
-            var inputXy = this.Input2D.X * this.Input2D.Y;
-            var filterXy = this.Filter2D.X * this.Filter2D.Y;
-            this._outputXy = this.Output2D.X * this.Output2D.Y;
-
-            this._filterElement = InputChannel * FilterChannel * filterXy;
+            this._filterElement = InputChannel * FilterChannel * this.Filter2D.Xy;
 
 
             this._filter = new double[this._filterElement];
@@ -158,7 +147,7 @@ namespace BlackTensor
                     {
                         for (var ix = 0; ix < this.Input2D.X; ix += Stride)
                         {
-                            var f = ik * filterXy + fk * InputChannel * filterXy;
+                            var f = ik * this.Filter2D.Xy + fk * InputChannel * this.Filter2D.Xy;
                             for (var fy = -this.Filter2D.Y / 2; fy <= this.Filter2D.Y / 2; fy++)
                             {
                                 for (var fx = -this.Filter2D.X / 2; fx <= this.Filter2D.X / 2; fx++)
@@ -167,8 +156,8 @@ namespace BlackTensor
                                     {
                                         if (0 <= iy + fy && iy + fy < this.Input2D.Y)
                                         {
-                                            var p = ix / Stride + iy / Stride * this.Output2D.X + fk * _outputXy;      //output unit
-                                            _connection[p][f] = (ix + fx) + (iy + fy) * this.Input2D.X + ik * inputXy; //input unit
+                                            var p = ix / Stride + iy / Stride * this.Output2D.X + fk * this.Output2D.Xy;      //output unit
+                                            _connection[p][f] = (ix + fx) + (iy + fy) * this.Input2D.X + ik * this.Input2D.Xy; //input unit
                                         }
                                     }
                                     f++;
@@ -186,7 +175,10 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
-            for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
+            var sw = new Stopwatch();
+            sw.Start();
+
+            Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
                 for (var j = 0; j < this.InputOutputData.Output[b].Length; j++)
                 {
@@ -198,11 +190,32 @@ namespace BlackTensor
                             this.InputOutputData.Output[b][j] += _filter[i] * this.InputOutputData.Input[b][_connection[j][i]];
                         }
                     }
-                    this.InputOutputData.Output[b][j] += _bias[j / _outputXy];
+                    this.InputOutputData.Output[b][j] += _bias[j / this.Output2D.Xy];
                     //Console.WriteLine(output[b][j]);
                     this.GradData.Output[b][j] = 1.0;
                 }
-            }
+            });
+
+            //for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
+            //{
+            //    for (var j = 0; j < this.InputOutputData.Output[b].Length; j++)
+            //    {
+            //        this.InputOutputData.Output[b][j] = 0.0;
+            //        for (var i = 0; i < this._filter.Length; i++)
+            //        {
+            //            if (_connection[j][i] > -1)
+            //            {
+            //                this.InputOutputData.Output[b][j] += _filter[i] * this.InputOutputData.Input[b][_connection[j][i]];
+            //            }
+            //        }
+            //        this.InputOutputData.Output[b][j] += _bias[j / _outputXy];
+            //        //Console.WriteLine(output[b][j]);
+            //        this.GradData.Output[b][j] = 1.0;
+            //    }
+            //}
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Conv2D)}.{nameof(this.Process)}：{sw.ElapsedMilliseconds}[ms]");
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output); 
         }
@@ -211,7 +224,10 @@ namespace BlackTensor
         {
             this.DeltaData.SetInputData(delta);
 
-            for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
+            var sw = new Stopwatch();
+            sw.Start();
+
+            Parallel.For(0, this.DeltaData.Output.GetLength(0), b =>
             {
                 for (var i = 0; i < this.DeltaData.Output[b].Length; i++)
                 {
@@ -222,53 +238,155 @@ namespace BlackTensor
                 {
                     for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
                     {
-                        if (_connection[i][j] > -1)
+                        var c = _connection[i][j];
+                        if (c > -1)
                         {
-                            this.DeltaData.Output[b][_connection[i][j]] += _filter[j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][_connection[i][j]];
+                            this.DeltaData.Output[b][c] += _filter[j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][c];
                         }
+                        //if (_connection[i][j] > -1)
+                        //{
+                        //    this.DeltaData.Output[b][_connection[i][j]] += _filter[j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][_connection[i][j]];
+                        //}
                     }
                 }
-            }
+            });
+
+            //for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
+            //{
+            //    for (var i = 0; i < this.DeltaData.Output[b].Length; i++)
+            //    {
+            //        this.DeltaData.Output[b][i] = 0.0;
+            //    }
+
+            //    for (var j = 0; j < this._filter.Length; j++)
+            //    {
+            //        for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
+            //        {
+            //            if (_connection[i][j] > -1)
+            //            {
+            //                this.DeltaData.Output[b][_connection[i][j]] += _filter[j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][_connection[i][j]];
+            //            }
+            //        }
+            //    }
+            //}
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Conv2D)}.{nameof(this.DeltaPropagation)}：{sw.ElapsedMilliseconds}[ms]");
 
             return this.DeltaData.Output;
         }
 
         public void BackPropagation()
         {
+            var sw = new Stopwatch();
+            sw.Start();
+
             _b1 *= Beta1;
             _b2 *= Beta2;
 
-            for (var i = 0; i < _filterElement; i++)
+            //for (var i = 0; i < this._dFilter.Length; i++)
+            //{
+            //    _dFilter[i] = 0.0;
+            //}
+
+            //for (var i = 0; i < this._dBias.Length; i++)
+            //{
+            //    _dBias[i] = 0.0;
+            //}
+
+            var ddFilter = new double[this.BatchSample][];
+            var ddBias = new double[this.BatchSample][];
+            for (var i = 0; i < this.BatchSample; i++)
             {
-                _dFilter[i] = 0.0;
+                ddFilter[i] = new double[this._dFilter.Length];
+                ddBias[i] = new double[this._dBias.Length];
             }
 
-            for (var i = 0; i < FilterChannel; i++)
-            {
-                _dBias[i] = 0.0;
-            }
-
-            for (var b = 0; b < this.BatchSample; b++)
+            Parallel.For(0, this.BatchSample, b =>
             {
                 for (var j = 0; j < this._dFilter.Length; j++)
                 {
                     for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
                     {
-                        if (_connection[i][j] > -1)
+                        var c = _connection[i][j];
+                        if (c > -1)
                         {
-                            _dFilter[j] += this.DeltaData.Input[b][i] * this.InputOutputData.Input[b][_connection[i][j]];
+                            ddFilter[b][j] += this.DeltaData.Input[b][i] * this.InputOutputData.Input[b][c];
                         }
                     }
                 }
 
-                for (var j = 0; j < FilterChannel; j++)
+                for (var j = 0; j < this.FilterChannel; j++)
                 {
-                    for (var i = 0; i < _outputXy; i++)
+                    for (var i = 0; i < this.Output2D.Xy; i++)
                     {
-                        _dBias[j] += this.DeltaData.Input[b][i + j * _outputXy];
+                        ddBias[b][j] += this.DeltaData.Input[b][i + j * this.Output2D.Xy];
                     }
                 }
+            });
+
+            for (var b = 0; b < this.BatchSample; b++)
+            {
+                for (var i = 0; i < this._dFilter.Length; i++)
+                {
+                    this._dFilter[i] += ddFilter[b][i];
+                }
+
+                for (var i = 0; i < this._dBias.Length; i++)
+                {
+                    this._dBias[i] += ddBias[b][i];
+                }
             }
+
+            //for (var b = 0; b < this.BatchSample; b++)
+            //{
+            //    var b1 = b;
+            //    Parallel.For(0, this._dFilter.Length, j =>
+            //    {
+            //        for (var i = 0; i < this.DeltaData.Input[b1].Length; i++)
+            //        {
+            //            if (_connection[i][j] > -1)
+            //            {
+            //                _dFilter[j] += this.DeltaData.Input[b1][i] * this.InputOutputData.Input[b1][_connection[i][j]];
+            //            }
+            //        }
+            //    });
+
+            //    var b2 = b;
+            //    Parallel.For(0, FilterChannel, j =>
+            //    {
+            //        for (var i = 0; i < _outputXy; i++)
+            //        {
+            //            _dBias[j] += this.DeltaData.Input[b2][i + j * _outputXy];
+            //        }
+            //    });
+            //}
+
+            //for (var b = 0; b < this.BatchSample; b++)
+            //{
+
+            //    for (var j = 0; j < this._dFilter.Length; j++)
+            //    {
+            //        for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
+            //        {
+            //            if (_connection[i][j] > -1)
+            //            {
+            //                _dFilter[j] += this.DeltaData.Input[b][i] * this.InputOutputData.Input[b][_connection[i][j]];
+            //            }
+            //        }
+            //    }
+
+            //    for (var j = 0; j < FilterChannel; j++)
+            //    {
+            //        for (var i = 0; i < _outputXy; i++)
+            //        {
+            //            _dBias[j] += this.DeltaData.Input[b][i + j * _outputXy];
+            //        }
+            //    }
+            //}
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Conv2D)}.{nameof(this.BackPropagation)}：{sw.ElapsedMilliseconds}[ms]");
         }
 
         public void SGD()

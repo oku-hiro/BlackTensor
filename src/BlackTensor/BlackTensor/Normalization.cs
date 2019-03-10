@@ -20,8 +20,6 @@ namespace BlackTensor
         public int OutputChannel { get; }
         #endregion
 
-        private readonly int _inputXy;
-
         #region 初期化
         /// <inheritdoc />
         /// <summary>
@@ -47,8 +45,6 @@ namespace BlackTensor
 
             this.InputChannel = inputChannel;
             this.OutputChannel = inputChannel;
-
-            this._inputXy = this.Input2D.X * this.Input2D.Y;
         }
         #endregion
 
@@ -94,7 +90,7 @@ namespace BlackTensor
             {
                 for (var k = 0; k < InputChannel; k++)
                 {
-                    var ki = k * _inputXy;
+                    var ki = k * this.Input2D.Xy;
                     for (var j = 0; j < this.Input2D.Y; j++)
                     {
                         for (var i = 0; i < this.Input2D.X; i++)
@@ -132,7 +128,7 @@ namespace BlackTensor
             {
                 for (var k = 0; k < InputChannel; k++)
                 {
-                    var ki = k * _inputXy;
+                    var ki = k * this.Input2D.Xy;
                     for (var j = 0; j < this.Input2D.Y; j++)
                     {
                         for (var i = 0; i < this.Input2D.X; i++)

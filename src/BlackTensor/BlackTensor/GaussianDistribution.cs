@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -34,6 +35,9 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var b = 0; b < this.BatchSample; b++)
             {
                 var z = Math.Sqrt(-2.0 * Math.Log(_rnd.NextDouble())) * Math.Cos(2.0 * Pi * _rnd.NextDouble());
@@ -44,12 +48,18 @@ namespace BlackTensor
                 }
             }
 
+            sw.Stop();
+            Debug.WriteLine($"{nameof(GaussianDistribution)}.{nameof(this.Process)}：{sw.ElapsedMilliseconds}[ms]");
+
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
         public double[][] DeltaPropagation(double[][] delta)
         {
             this.DeltaData.SetInputData(delta);
+
+            var sw = new Stopwatch();
+            sw.Start();
 
             for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
             {
@@ -61,6 +71,9 @@ namespace BlackTensor
                     }
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(DeltaPropagation)}.{nameof(this.DeltaPropagation)}：{sw.ElapsedMilliseconds}[ms]");
 
             return this.DeltaData.Output;
         }

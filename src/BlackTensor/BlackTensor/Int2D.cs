@@ -21,9 +21,13 @@ namespace BlackTensor
         /// </summary>
         public int Y { get; set; }
         /// <summary>
-        /// X と Y の合計値を取得・設定します。
+        /// X と Y の合計値を取得します。
         /// </summary>
         public int Sum => this.X + this.Y;
+        /// <summary>
+        /// X と Y を掛けた値を取得します。
+        /// </summary>
+        public int Xy => this.X * this.Y;
         #endregion
 
         #region 初期化

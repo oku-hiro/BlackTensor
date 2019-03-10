@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,8 +19,8 @@ namespace BlackTensor
         #endregion
 
 
-        private readonly int _inputXy;
-        private readonly int _outputXy;
+        //private readonly int _inputXy;
+        //private readonly int _outputXy;
         private readonly int[][] _w;
 
         #region 初期化
@@ -47,9 +48,6 @@ namespace BlackTensor
             this.InputChannel = inputChannel;
             this.OutputChannel = inputChannel;
 
-            _inputXy = this.Input2D.X * this.Input2D.Y;
-            _outputXy = this.Output2D.X * this.Output2D.Y;
-
             this._w = new int[batchSample][];
 
             for (var i = 0; i < batchSample; i++)
@@ -64,6 +62,9 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var b = 0; b < this.BatchSample; b++)
             {
                 for (var i = 0; i < this.OutputUnit; i++)
@@ -75,8 +76,8 @@ namespace BlackTensor
            
                 for (var k = 0; k < InputChannel; k++)
                 {
-                    var ki = k * _inputXy;
-                    var kp = k * _outputXy;
+                    var ki = k * this.Input2D.Xy;
+                    var kp = k * this.Output2D.Xy;
 
                     for (var j = 0; j < this.Output2D.Y; j++)
                     {
@@ -110,12 +111,18 @@ namespace BlackTensor
                 }
             }
 
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Pooling)}.{nameof(this.Process)}：{sw.ElapsedMilliseconds}[ms]");
+
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
         public double[][] DeltaPropagation(double[][] delta)
         {
             this.DeltaData.SetInputData(delta);
+
+            var sw = new Stopwatch();
+            sw.Start();
 
             for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
             {
@@ -132,6 +139,9 @@ namespace BlackTensor
                     }
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Pooling)}.{nameof(this.DeltaPropagation)}：{sw.ElapsedMilliseconds}[ms]");
 
             return this.DeltaData.Output;
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -88,6 +89,9 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad, 0, 1);
 
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
             {
                 for (var j = 0; j < this.InputOutputData.Output[b].Length; j++)
@@ -101,12 +105,18 @@ namespace BlackTensor
                 }
             }
 
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Dense)}.{nameof(this.Process)}：{sw.ElapsedMilliseconds}[ms]");
+
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
         public double[][] DeltaPropagation(double[][] delta)
         {
             this.DeltaData.SetInputData(delta);
+
+            var sw = new Stopwatch();
+            sw.Start();
 
             for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
             {
@@ -121,11 +131,17 @@ namespace BlackTensor
                 }
             }
 
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Dense)}.{nameof(this.DeltaPropagation)}：{sw.ElapsedMilliseconds}[ms]");
+
             return this.DeltaData.Output;
         }
 
         public void BackPropagation()
         {
+            var sw = new Stopwatch();
+            sw.Start();
+
             _b1 *= Beta1;
             _b2 *= Beta2;
             for (var j = 0; j < this._dw.GetLength(0); j++)
@@ -146,10 +162,16 @@ namespace BlackTensor
                     }
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Dense)}.{nameof(this.BackPropagation)}：{sw.ElapsedMilliseconds}[ms]");
         }
 
         public void ADAM()
         {
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var j = 0; j < this._w.GetLength(0); j++)
             {
                 for (var i = 0; i < this._w[j].Length; i++)
@@ -161,10 +183,16 @@ namespace BlackTensor
                     _w[j][i] -= Lr * a / (Math.Sqrt(b) + _epsilon);
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Dense)}.{nameof(this.ADAM)}：{sw.ElapsedMilliseconds}[ms]");
         }
 
         public void RmsProp()
         {
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var j = 0; j < this._w.GetLength(0); j++)
             {
                 for (var i = 0; i < this._w[j].Length; i++)
@@ -173,10 +201,16 @@ namespace BlackTensor
                     _w[j][i] -= Lr * _dw[j][i] / (Math.Sqrt(_m[j][i]) + _epsilon);
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Dense)}.{nameof(this.RmsProp)}：{sw.ElapsedMilliseconds}[ms]");
         }
 
         public void SGD()
         {
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var j = 0; j < this._w.GetLength(0); j++)
             {
                 for (var i = 0; i < this._w[j].Length; i++)
@@ -184,6 +218,9 @@ namespace BlackTensor
                     _w[j][i] -= Lr * _dw[j][i];
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Dense)}.{nameof(this.SGD)}：{sw.ElapsedMilliseconds}[ms]");
         }
 
         public void SaveParameter(int layer)

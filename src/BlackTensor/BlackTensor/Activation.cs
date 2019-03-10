@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -45,6 +46,9 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var b = 0; b < this.BatchSample; b++)
             {
                 for (var i = 0; i < this.OutputUnit; i++)
@@ -61,6 +65,9 @@ namespace BlackTensor
                     }
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Activation)}.{nameof(this.ReLU)}：{sw.ElapsedMilliseconds}[ms]");
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
@@ -85,6 +92,9 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var b = 0; b < this.BatchSample; b++)
             {
                 for (var i = 0; i < this.OutputUnit; i++)
@@ -101,12 +111,18 @@ namespace BlackTensor
                 }
             }
 
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Activation)}.{nameof(this.Softmax)}：{sw.ElapsedMilliseconds}[ms]");
+
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
         public double[][] DeltaPropagation(double[][] deltaData)
         {
             this.DeltaData.SetInputData(deltaData);
+
+            var sw = new Stopwatch();
+            sw.Start();
 
             for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
             {
@@ -115,6 +131,9 @@ namespace BlackTensor
                     this.DeltaData.Output[b][i] = this.DeltaData.Input[b][i] * this.GradData.Input[b][i];
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Activation)}.{nameof(this.DeltaPropagation)}：{sw.ElapsedMilliseconds}[ms]");
 
             return this.DeltaData.Output;
         }

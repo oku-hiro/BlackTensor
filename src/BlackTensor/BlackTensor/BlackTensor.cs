@@ -375,12 +375,12 @@ namespace BlackTensor
                 var avgTime = totalTime / (k + 1);
                 var completeTime = avgTime * (lp.epochs - k - 1);
 
-                Console.WriteLine($"{k + 1}/{lp.epochs}：Error = {_totalError[k]}\tTime = {sw.ElapsedMilliseconds}[ms]\tComplete = {completeTime / 1000}[s]");
+                Console.WriteLine($"{k + 1}/{lp.epochs}：Error = {_totalError[k]}\tTime = {sw.ElapsedMilliseconds}[ms]\tComplete = {completeTime / 1000}[s] = {completeTime / 1000 / 60}[m]");
 
                 //Console.WriteLine(_totalError[k]);
             }
 
-            Console.WriteLine($"TotalTime：{totalTime}[ms]");
+            Console.WriteLine($"TotalTime：{totalTime}[ms] = {totalTime / 1000}[s] = {totalTime / 1000 / 60}[m]");
 
             SaveParameter();
 
@@ -431,20 +431,36 @@ namespace BlackTensor
 
         private void RmsProp()
         {
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var i = 0; i < _cpStock; i++)
             {
                 _cp[i].RmsProp();
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(Conv2d)}.{nameof(this.RmsProp)}：{sw.ElapsedMilliseconds}[ms]");
+
+            sw.Restart();
 
             for (var i = 0; i < _ctStock; i++)
             {
                 _ct[i].RmsProp();
             }
 
+            sw.Stop();
+            Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(Conv2dTranspose)}.{nameof(this.RmsProp)}：{sw.ElapsedMilliseconds}[ms]");
+
+            sw.Restart();
+
             for (var i = 0; i < _dpStock; i++)
             {
                 _dp[i].RmsProp();
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(Conv2d)}.{nameof(this.Dense)}：{sw.ElapsedMilliseconds}[ms]");
         }
 
         private void SGD()
@@ -635,6 +651,9 @@ namespace BlackTensor
             var gdStep = _gdStock - 1;
             var acStep = _acStock - 1;
 
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var b = 0; b < _batchSample; b++)
             {
                 for (var i = 0; i < _outputUnit; i++)
@@ -643,6 +662,10 @@ namespace BlackTensor
                 }
             }
 
+            sw.Stop();
+            Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(this.BackPropagation)}1：{sw.ElapsedMilliseconds}[ms]");
+
+            sw.Restart();
             for (var i = _sqStock - 1; i >= 0; i--)
             {
                 double[][] result;
@@ -692,20 +715,32 @@ namespace BlackTensor
                 }
             }
 
+            sw.Stop();
+            Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(this.BackPropagation)}2：{sw.ElapsedMilliseconds}[ms]");
+
+            sw.Restart();
             for (var i = 0; i < _cpStock; i++)
             {
                 _cp[i].BackPropagation();
             }
+            sw.Stop();
+            Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(Conv2d)}.{nameof(this.BackPropagation)}：{sw.ElapsedMilliseconds}[ms]");
 
+            sw.Restart();
             for (var i = 0; i < _ctStock; i++)
             {
                 _ct[i].BackPropagation();
             }
+            sw.Stop();
+            Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(Conv2dTranspose)}.{nameof(this.BackPropagation)}：{sw.ElapsedMilliseconds}[ms]");
 
+            sw.Restart();
             for (var i = 0; i < _dpStock; i++)
             {
                 _dp[i].BackPropagation();
             }
+            sw.Stop();
+            Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(Dense)}.{nameof(this.BackPropagation)}：{sw.ElapsedMilliseconds}[ms]");
         }
         #endregion
 
