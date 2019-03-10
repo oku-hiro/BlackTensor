@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -7,176 +8,170 @@ using System.IO;
 
 namespace BlackTensor
 {
-    class Conv2dTranspose
+    public class Conv2DTranspose : BaseAnalysis
     {
-        public int input_channel;
-        public int input_x;
-        public int input_y;
-        public int input_unit;
-        public int output_channel;
-        public int output_x;
-        public int output_y;
-        public int output_unit;
-        public int filter_channel;
-        public int filter_x;
-        public int filter_y;
-        public int batch_sample;
+        #region 定数
+        private const int Upsampling = 2;
+        private const double Beta1 = 0.9;
+        private const double Beta2 = 0.999;
+        private const double Gamma = 0.99;
+        private readonly double _epsilon = Math.Pow(10.0, -8.0);
+        #endregion
 
-        public double lr;
-        public double[][] input;
-        public double[][] this_delta;
-        public double[][] next_delta;
-        public double[][] pre_grad;
-        public double[][] this_grad;
-        public double[][] output;
+        #region プロパティ
+        public int InputChannel { get; }
+        public int FilterChannel { get; }
+        public int OutputChannel { get; }
 
-        int input_xy;
-        int output_xy;
-        int filter_xy;
-        int filter_element;
-        int pad_x;
-        int pad_y;
-        int pad_xy;
-        int pad_unit;
+        public double Lr { get; }
 
-        double[][] padding;
-        double[][] padding_delta;
-        double[][] padding_grad;
-        double[] filter;
-        double[] d_filter;
-        double[] bias;
-        double[] d_bias;
-        double[] fm;
-        double[] fv;
-        double[] bm;
-        double[] bv;
-        int[][] connection;
+        public Int2D Input2D { get; }
+        public Int2D Filter2D { get; }
+        public Int2D Output2D { get; }
+        public Int2D Pad2D { get; }
+        #endregion
 
-        const int upsampling = 2;
-        const double beta1 = 0.9;
-        const double beta2 = 0.999;
-        const double gamma = 0.99;
-        double b1, b2;
-        double epsilon = Math.Pow(10.0, -8.0);
+        //private readonly int _inputXy;
+        //private readonly int _outputXy;
 
-        public Conv2dTranspose()
+        //private readonly int _padXy;
+        private readonly int _padUnit;
+
+        private readonly double[][] _padding;
+        private readonly double[][] _paddingDelta;
+        private readonly double[][] _paddingGrad;
+        private readonly double[] _filter;
+        private readonly double[] _dFilter;
+        private readonly double[] _bias;
+        private readonly double[] _dBias;
+        private readonly double[] _fm;
+        private readonly double[] _fv;
+        private readonly double[] _bm;
+        private readonly double[] _bv;
+        private readonly int[][] _connection;
+
+        private double _b1, _b2;
+
+        #region 初期化
+        /// <inheritdoc />
+        /// <summary>
+        /// 初期化します。
+        /// </summary>
+        public Conv2DTranspose()
         {
-            b1 = beta1;
-            b2 = beta2;
+            this._b1 = Beta1;
+            this._b2 = Beta2;
         }
-
-        public void Setting()
+        /// <inheritdoc />
+        /// <summary>
+        /// 指定した値を使用して、初期化します。
+        /// </summary>
+        /// <param name="batchSample"></param>
+        /// <param name="inputX"></param>
+        /// <param name="inputY"></param>
+        /// <param name="filterX"></param>
+        /// <param name="filterY"></param>
+        /// <param name="inputChannel"></param>
+        /// <param name="filterChannel"></param>
+        /// <param name="lr"></param>
+        public Conv2DTranspose(int batchSample, int inputX, int inputY, int filterX, int filterY, int inputChannel, int filterChannel, double lr):
+            base(inputX * inputY * inputChannel, (inputX * Upsampling) * (inputY * Upsampling) * filterChannel, batchSample)
         {
-            Random rnd = new Random();
+            this._b1 = Beta1;
+            this._b2 = Beta2;
 
-            input_xy = input_x * input_y;
-            output_channel = filter_channel;
-            pad_x = upsampling * input_x;
-            pad_y = upsampling * input_y;
-            pad_xy = pad_x * pad_y;
-            output_x = pad_x;
-            output_y = pad_y;
-            output_xy = output_x * output_y;
+            this.InputChannel = inputChannel;
+            this.FilterChannel = filterChannel;
+            this.OutputChannel = filterChannel;
+            this.Lr = lr;
 
-            filter_xy = filter_x * filter_y;
-            input_unit = input_channel * input_xy;
-            output_unit = output_channel * output_xy;
-            filter_element = input_channel * filter_channel * filter_xy;
-            pad_unit = input_channel * pad_xy;
+            this.Input2D = new Int2D(inputX, inputY);
+            this.Filter2D = new Int2D(filterX, filterY);
+            this.Pad2D = new Int2D(Upsampling * this.Input2D.X, Upsampling * this.Input2D.Y);
+            this.Output2D = new Int2D(this.Pad2D.X, this.Pad2D.Y);
 
-            input = new double[batch_sample][];
-            padding = new double[batch_sample][];
-            output = new double[batch_sample][];
-            next_delta = new double[batch_sample][];
-            this_delta = new double[batch_sample][];
-            padding_delta = new double[batch_sample][];
-            padding_grad = new double[batch_sample][];
-            pre_grad = new double[batch_sample][];
-            this_grad = new double[batch_sample][];
+            var filterElement = this.InputChannel * this.FilterChannel * this.Filter2D.Xy;
 
-            for (int i = 0; i < batch_sample; i++)
+            _padUnit = this.InputChannel * this.Pad2D.Xy;
+
+            _padding = new double[this.BatchSample][];
+            _paddingDelta = new double[this.BatchSample][];
+            _paddingGrad = new double[this.BatchSample][];
+
+            for (var i = 0; i < this.BatchSample; i++)
             {
-                input[i] = new double[input_unit];
-                padding[i] = new double[pad_unit];
-                output[i] = new double[output_unit];
-                next_delta[i] = new double[input_unit];
-                this_delta[i] = new double[output_unit];
-                padding_delta[i] = new double[pad_unit];
-                padding_grad[i] = new double[pad_unit];
-                pre_grad[i] = new double[input_unit];
-                this_grad[i] = new double[output_unit];
+                _padding[i] = new double[_padUnit];
+                _paddingDelta[i] = new double[_padUnit];
+                _paddingGrad[i] = new double[_padUnit];
             }
 
-            filter = new double[filter_element];
-            d_filter = new double[filter_element];
-            bias = new double[filter_channel];
-            d_bias = new double[filter_channel];
+            _filter = new double[filterElement];
+            _dFilter = new double[filterElement];
+            _bias = new double[this.FilterChannel];
+            _dBias = new double[this.FilterChannel];
 
-            connection = new int[output_unit][];
-            for (int i = 0; i < output_unit; i++)
+            _connection = new int[this.OutputUnit][];
+            for (var i = 0; i < this._connection.GetLength(0); i++)
             {
-                connection[i] = new int[pad_unit];
-            }
-
-            fm = new double[filter_element];
-            fv = new double[filter_element];
-            bm = new double[filter_channel];
-            bv = new double[filter_channel];
-
-            for (int i = 0; i < filter_element; i++)
-            {
-                fm[i] = 0.0;
-                fv[i] = 0.0;
-            }
-
-            for (int i = 0; i < filter_channel; i++)
-            {
-                bm[i] = 0.0;
-                bv[i] = 0.0;
-            }
-
-            for (int i = 0; i < filter_element; i++)
-            {
-                filter[i] = rnd.NextDouble();
-                filter[i] *= Math.Pow(10.0, -8.0);
-            }
-
-            for (int i = 0; i < filter_channel; i++)
-            {
-                bias[i] = 0.0;
-            }
-
-            for (int j = 0; j < output_unit; j++)
-            {
-                for (int i = 0; i < pad_unit; i++)
+                _connection[i] = new int[_padUnit];
+                for (var j = 0; j < this._connection[i].Length; j++)
                 {
-                    connection[j][i] = -1;
+                    _connection[i][j] = -1;
                 }
             }
 
-            for (int fk = 0; fk < filter_channel; fk++)
+            _fm = new double[filterElement];
+            _fv = new double[filterElement];
+            _bm = new double[this.FilterChannel];
+            _bv = new double[this.FilterChannel];
+
+            for (var i = 0; i < filterElement; i++)
             {
-                for (int ik = 0; ik < input_channel; ik++)
+                _fm[i] = 0.0;
+                _fv[i] = 0.0;
+            }
+
+            for (var i = 0; i < this.FilterChannel; i++)
+            {
+                _bm[i] = 0.0;
+                _bv[i] = 0.0;
+            }
+
+            var rnd = new Random();
+            for (var i = 0; i < filterElement; i++)
+            {
+                _filter[i] = rnd.NextDouble();
+                _filter[i] *= Math.Pow(10.0, -8.0);
+            }
+
+            for (var i = 0; i < this.FilterChannel; i++)
+            {
+                _bias[i] = 0.0;
+            }
+
+            for (var fk = 0; fk < this.FilterChannel; fk++)
+            {
+                for (var ik = 0; ik < this.InputChannel; ik++)
                 {
-                    for (int iy = 0; iy < pad_y; iy++)
+                    for (var iy = 0; iy < this.Pad2D.Y; iy++)
                     {
-                        for (int ix = 0; ix < pad_x; ix++)
+                        for (var ix = 0; ix < this.Pad2D.X; ix++)
                         {
-                            int f = ik * filter_xy + fk * input_channel * filter_xy;
-                            for (int fy = -filter_y / 2; fy <= filter_y / 2; fy++)
+                            var f = ik * this.Filter2D.Xy + fk * this.InputChannel * this.Filter2D.Xy;
+                            for (var fy = -this.Filter2D.Y / 2; fy <= this.Filter2D.Y / 2; fy++)
                             {
-                                for (int fx = -filter_x / 2; fx <= filter_x / 2; fx++)
+                                for (var fx = -this.Filter2D.X / 2; fx <= this.Filter2D.X / 2; fx++)
                                 {
-                                    if (0 <= ix + fx && ix + fx < pad_x)
+                                    if (0 <= ix + fx && ix + fx < this.Pad2D.X)
                                     {
-                                        if (0 <= iy + fy && iy + fy < pad_y)
+                                        if (0 <= iy + fy && iy + fy < this.Pad2D.Y)
                                         {
-                                            int p = ix + iy * output_x + fk * output_xy;         //output unit
-                                            int q = (ix + fx) + (iy + fy) * pad_x + ik * pad_xy; //input unit
-                                            connection[p][q] = f;
+                                            var p = ix + iy * this.Output2D.X + fk * this.Output2D.Xy;         //output unit
+                                            var q = (ix + fx) + (iy + fy) * this.Pad2D.X + ik * this.Pad2D.Xy; //input unit
+                                            _connection[p][q] = f;
                                         }
                                     }
-                                    f += 1;
+                                    f++;
                                 }
                             }
                         }
@@ -184,111 +179,127 @@ namespace BlackTensor
                 }
             }
         }
+        #endregion
 
-        public void Process()
+        #region メソッド
+        public Tuple<double[][], double[][]> Process(double[][] flow, double[][] grad)
         {
-            Parallel.For(0, batch_sample, b =>
+            this.SetInputGradData(flow, grad);
+
+            var sw = new Stopwatch();
+            sw.Start();
+
+            Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
-                for (int k = 0; k < input_channel; k++)
+                for (var k = 0; k < this.InputChannel; k++)
                 {
-                    for (int j = 0; j < input_y; j++)
+                    for (var j = 0; j < this.Input2D.Y; j++)
                     {
-                        for (int i = 0; i < input_x; i++)
+                        for (var i = 0; i < this.Input2D.X; i++)
                         {
-                            padding[b][upsampling * (i + j * pad_x) + k * pad_xy] = input[b][i + j * input_x + k * input_xy];
+                            _padding[b][Upsampling * (i + j * this.Pad2D.X) + k * this.Pad2D.Xy] = this.InputOutputData.Input[b][i + j * this.Input2D.X + k * this.Input2D.Xy];
                         }
                     }
                 }
 
-                for (int j = 0; j < output_unit; j++)
+                for (var j = 0; j < this.InputOutputData.Output[b].Length; j++)
                 {
-                    output[b][j] = 0.0;
-                    for (int i = 0; i < pad_unit; i++)
+                    this.InputOutputData.Output[b][j] = 0.0;
+                    for (var i = 0; i < _padUnit; i++)
                     {
-                        if (connection[j][i] > -1)
+                        if (_connection[j][i] > -1)
                         {
-                            output[b][j] += filter[connection[j][i]] * padding[b][i];
+                            this.InputOutputData.Output[b][j] += _filter[_connection[j][i]] * _padding[b][i];
                         }
                     }
-                    output[b][j] += bias[j / output_xy];
-                    this_grad[b][j] = 1.0;
+                    this.InputOutputData.Output[b][j] += _bias[j / this.Output2D.Xy];
+                    this.GradData.Output[b][j] = 1.0;
                 }
             });
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Conv2DTranspose)}.{nameof(this.Process)}：{sw.ElapsedMilliseconds}[ms]");
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void DeltaPropagation()
+        public double[][] DeltaPropagation(double[][] delta)
         {
-            Parallel.For(0, batch_sample, b =>
+            this.DeltaData.SetInputData(delta);
+
+            Parallel.For(0, this.DeltaData.Output.GetLength(0), b =>
             {
-                for (int k = 0; k < input_channel; k++)
+                for (var k = 0; k < this.InputChannel; k++)
                 {
-                    for (int j = 0; j < input_y; j++)
+                    for (var j = 0; j < this.Input2D.Y; j++)
                     {
-                        for (int i = 0; i < input_x; i++)
+                        for (var i = 0; i < this.Input2D.X; i++)
                         {
-                            padding_grad[b][upsampling * (i + j * pad_x) + k * pad_xy] = pre_grad[b][i + j * input_x + k * input_xy];
+                            _paddingGrad[b][Upsampling * (i + j * this.Pad2D.X) + k * this.Pad2D.Xy] = this.GradData.Input[b][i + j * this.Input2D.X + k * this.Input2D.Xy];
                         }
                     }
                 }
 
-                for (int j = 0; j < pad_unit; j++)
+                for (var j = 0; j < _padUnit; j++)
                 {
-                    padding_delta[b][j] = 0.0;
-                    for (int i = 0; i < output_unit; i++)
+                    _paddingDelta[b][j] = 0.0;
+                    for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
                     {
-                        if (connection[i][j] > -1)
+                        if (_connection[i][j] > -1)
                         {
-                            padding_delta[b][j] += filter[connection[i][j]] * this_delta[b][i] * padding_grad[b][j];
+                            _paddingDelta[b][j] += _filter[_connection[i][j]] * this.DeltaData.Input[b][i] * _paddingGrad[b][j];
                         }
                     }
                 }
 
-                for (int k = 0; k < input_channel; k++)
+                for (var k = 0; k < this.InputChannel; k++)
                 {
-                    for (int j = 0; j < input_y; j++)
+                    for (var j = 0; j < this.Input2D.Y; j++)
                     {
-                        for (int i = 0; i < input_x; i++)
+                        for (var i = 0; i < this.Input2D.X; i++)
                         {
-                            next_delta[b][i + j * input_x + k * input_xy] = padding_delta[b][upsampling * (i + j * pad_x) + k * pad_xy];
+                            this.DeltaData.Output[b][i + j * this.Input2D.X + k * this.Input2D.Xy] = _paddingDelta[b][Upsampling * (i + j * this.Pad2D.X) + k * this.Pad2D.Xy];
                         }
                     }
                 }
             });
+
+            return this.DeltaData.Output;
         }
 
         public void BackPropagation()
         {
-            b1 *= beta1;
-            b2 *= beta2;
+            _b1 *= Beta1;
+            _b2 *= Beta2;
 
-            for (int i = 0; i < filter_element; i++)
+            for (var i = 0; i < this._dFilter.Length; i++)
             {
-                d_filter[i] = 0.0;
+                _dFilter[i] = 0.0;
             }
 
-            for (int i = 0; i < filter_channel; i++)
+            for (var i = 0; i < this._dBias.Length; i++)
             {
-                d_bias[i] = 0.0;
+                _dBias[i] = 0.0;
             }
 
-            for (int k = 0; k < batch_sample; k++)
+            for (var k = 0; k < this.DeltaData.Input.GetLength(0); k++)
             {
-                for (int j = 0; j < output_unit; j++)
+                for (var j = 0; j < this.DeltaData.Input[k].Length; j++)
                 {
-                    for (int i = 0; i < pad_unit; i++)
+                    for (var i = 0; i < _padUnit; i++)
                     {
-                        if (connection[j][i] > -1)
+                        if (_connection[j][i] > -1)
                         {
-                            d_filter[connection[j][i]] += this_delta[k][j] * padding[k][i];
+                            _dFilter[_connection[j][i]] += this.DeltaData.Input[k][j] * _padding[k][i];
                         }
                     }
                 }
 
-                for (int j = 0; j < filter_channel; j++)
+                for (var j = 0; j < this._dBias.Length; j++)
                 {
-                    for (int i = 0; i < output_xy; i++)
+                    for (var i = 0; i < this.Output2D.Xy; i++)
                     {
-                        d_bias[j] += this_delta[k][i + j * output_xy];
+                        _dBias[j] += this.DeltaData.Input[k][i + j * this.Output2D.Xy];
                     }
                 }
             }
@@ -296,68 +307,86 @@ namespace BlackTensor
 
         public void SGD()
         {
-            for (int i = 0; i < filter_element; i++)
+            for (var i = 0; i < this._filter.Length; i++)
             {
-                filter[i] -= lr * d_filter[i];
+                _filter[i] -= Lr * _dFilter[i];
             }
 
-            for (int i = 0; i < filter_channel; i++)
+            for (var i = 0; i < this._bias.Length; i++)
             {
-                bias[i] -= lr * d_bias[i];
+                _bias[i] -= Lr * _dBias[i];
             }
         }
 
         public void ADAM()
         {
-            for (int i = 0; i < filter_element; i++)
+            for (var i = 0; i < this._filter.Length; i++)
             {
-                fm[i] = beta1 * fm[i] + (1.0 - beta1) * d_filter[i];
-                fv[i] = beta2 * fv[i] + (1.0 - beta2) * d_filter[i] * d_filter[i];
-                double m = fm[i] / (1.0 - b1);
-                double v = fv[i] / (1.0 - b2);
-                filter[i] -= lr * m / (Math.Sqrt(v) + epsilon);
+                _fm[i] = Beta1 * _fm[i] + (1.0 - Beta1) * _dFilter[i];
+                _fv[i] = Beta2 * _fv[i] + (1.0 - Beta2) * _dFilter[i] * _dFilter[i];
+                var m = _fm[i] / (1.0 - _b1);
+                var v = _fv[i] / (1.0 - _b2);
+                _filter[i] -= Lr * m / (Math.Sqrt(v) + _epsilon);
             }
 
-            for (int i = 0; i < filter_channel; i++)
+            for (var i = 0; i < this._bias.Length; i++)
             {
-                bm[i] = beta1 * bm[i] + (1.0 - beta1) * d_bias[i];
-                bv[i] = beta2 * bv[i] + (1.0 - beta2) * d_bias[i] * d_bias[i];
-                double m = bm[i] / (1.0 - b1);
-                double v = bv[i] / (1.0 - b2);
-                bias[i] -= lr * m / (Math.Sqrt(v) + epsilon);
+                _bm[i] = Beta1 * _bm[i] + (1.0 - Beta1) * _dBias[i];
+                _bv[i] = Beta2 * _bv[i] + (1.0 - Beta2) * _dBias[i] * _dBias[i];
+                var m = _bm[i] / (1.0 - _b1);
+                var v = _bv[i] / (1.0 - _b2);
+                _bias[i] -= Lr * m / (Math.Sqrt(v) + _epsilon);
             }
         }
 
         public void RmsProp()
         {
-            for (int i = 0; i < filter_element; i++)
+            for (var i = 0; i < this._filter.Length; i++)
             {
-                fv[i] = beta1 * fv[i] + (1.0 - gamma) * d_filter[i] * d_filter[i];
-                filter[i] -= lr * d_filter[i] / (Math.Sqrt(fv[i]) + epsilon);
+                _fv[i] = Beta1 * _fv[i] + (1.0 - Gamma) * _dFilter[i] * _dFilter[i];
+                _filter[i] -= Lr * _dFilter[i] / (Math.Sqrt(_fv[i]) + _epsilon);
             }
 
-            for (int i = 0; i < filter_channel; i++)
+            for (var i = 0; i < this._bias.Length; i++)
             {
-                bv[i] = beta2 * bv[i] + (1.0 - beta2) * d_bias[i] * d_bias[i];
-                bias[i] -= lr * d_bias[i] / (Math.Sqrt(bv[i]) + epsilon);
+                _bv[i] = Beta2 * _bv[i] + (1.0 - Beta2) * _dBias[i] * _dBias[i];
+                _bias[i] -= Lr * _dBias[i] / (Math.Sqrt(_bv[i]) + _epsilon);
             }
         }
 
         public void SaveParameter(int layer)
         {
-            StreamWriter sw1 = new StreamWriter("conv2d_transpose_filter" + (layer + 1).ToString());
-            for (int i = 0; i < filter_element; i++)
+            using (var sw1 = new StreamWriter("conv2d_transpose_filter" + (layer + 1)))
             {
-                sw1.WriteLine(filter[i]);
+                foreach (var item in _filter)
+                {
+                    sw1.WriteLine(item);
+                }
             }
-            sw1.Close();
 
-            StreamWriter sw2 = new StreamWriter("conv2d_transpose_bias" + (layer + 1).ToString());
-            for (int i = 0; i < filter_channel; i++)
+            using (var sw2 = new StreamWriter("conv2d_transpose_bias" + (layer + 1)))
             {
-                sw2.WriteLine(bias[i]);
+                foreach (var item in _bias)
+                {
+                    sw2.WriteLine(item);
+                }
             }
-            sw2.Close();
+        }
+        #endregion
+
+        /// <summary>
+        /// 内容を表す文字列を返します。
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(nameof(Conv2DTranspose));
+            sb.AppendLine($"Input:({this.InputChannel},{this.Input2D.X},{this.Input2D.Y})");
+            sb.AppendLine($"Filter:({this.FilterChannel},{this.Filter2D.X},{this.Filter2D.Y})");
+            sb.Append($"Output:({this.OutputChannel},{this.Output2D.X},{this.Output2D.Y})");
+
+            return sb.ToString();
         }
     }
 }

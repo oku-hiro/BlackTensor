@@ -12,55 +12,56 @@ namespace BlackTensor.ConvolutionNN
     {
         static void Main(string[] args)
         {
-            string image_file = ".train-images.idx3-ubyte";
-            string label_file = ".train-labels.idx1-ubyte";
-            string t_image_file = ".t10k-images.idx3-ubyte";
-            string t_label_file = ".t10k-labels.idx1-ubyte";
+            var imageFile = "train-images.idx3-ubyte";
+            var labelFile = "train-labels.idx1-ubyte";
+            var tImageFile = "t10k-images.idx3-ubyte";
+            var tLabelFile = "t10k-labels.idx1-ubyte";
 
-            FileStream fs1 = new FileStream(image_file, FileMode.Open);
-            BinaryReader byte_image = new BinaryReader(fs1);
+            var iData = new byte[60000][];
+            var imageData = new byte[60000][];
+            var lData = new byte[60000];
+            var labelData = new byte[60000];
 
-            FileStream fs2 = new FileStream(label_file, FileMode.Open);
-            BinaryReader byte_label = new BinaryReader(fs2);
-
-            byte[][] i_data = new byte[60000][];
-            byte[][] image_data = new byte[60000][];
-            byte[] l_data = new byte[60000];
-            byte[] label_data = new byte[60000];
-
-            for (int i = 0; i < 60000; i++)
+            for (var i = 0; i < 60000; i++)
             {
-                i_data[i] = new byte[784];
-                image_data[i] = new byte[784];
+                iData[i] = new byte[784];
+                imageData[i] = new byte[784];
             }
 
-            for (int j = 0; j < 60000; j++)
+            using (var fs1 = new FileStream(imageFile, FileMode.Open))
+            using (var fs2 = new FileStream(labelFile, FileMode.Open))
             {
-                l_data[j] = byte_label.ReadByte();
-                for (int i = 0; i < 784; i++)
+                var byteImage = new BinaryReader(fs1);
+                var byteLabel = new BinaryReader(fs2);
+
+                for (var j = 0; j < 60000; j++)
                 {
-                    i_data[j][i] = byte_image.ReadByte();
+                    lData[j] = byteLabel.ReadByte();
+                    for (var i = 0; i < 784; i++)
+                    {
+                        iData[j][i] = byteImage.ReadByte();
+                    }
                 }
             }
 
-            for (int k = 0; k < 60000 - 8; k++)
+            for (var k = 0; k < 60000 - 8; k++)
             {
-                label_data[k] = l_data[k + 8];
+                labelData[k] = lData[k + 8];
 
-                for (int j = 0; j < 28; j++)
+                for (var j = 0; j < 28; j++)
                 {
-                    for (int i = 0; i < 14; i++)
+                    for (var i = 0; i < 14; i++)
                     {
-                        int p = i + j * 28;
-                        int q = (i + 14) + j * 28;
-                        image_data[k][q] = i_data[k][p];
+                        var p = i + j * 28;
+                        var q = (i + 14) + j * 28;
+                        imageData[k][q] = iData[k][p];
                     }
 
-                    for (int i = 14; i < 28; i++)
+                    for (var i = 14; i < 28; i++)
                     {
-                        int p = i + j * 28;
-                        int q = (i - 14) + j * 28;
-                        image_data[k][q] = i_data[k][p];
+                        var p = i + j * 28;
+                        var q = (i - 14) + j * 28;
+                        imageData[k][q] = iData[k][p];
                     }
                 }
             }
@@ -78,23 +79,23 @@ namespace BlackTensor.ConvolutionNN
 
             lp.output_data = new double[5000][];
             lp.input_data = new double[5000][];
-            for (int i = 0; i < 5000; i++)
+            for (var i = 0; i < 5000; i++)
             {
                 lp.output_data[i] = new double[10];
                 lp.input_data[i] = new double[784];
             }
 
-            for (int j = 0; j < 5000; j++)
+            for (var j = 0; j < 5000; j++)
             {
-                lp.output_data[j][label_data[j]] = 1.0;
-                for (int i = 0; i < 784; i++)
+                lp.output_data[j][labelData[j]] = 1.0;
+                for (var i = 0; i < 784; i++)
                 {
-                    lp.input_data[j][i] = image_data[j][i];
+                    lp.input_data[j][i] = imageData[j][i];
                     lp.input_data[j][i] /= 255.0;
                 }
             }
 
-            BlackTensor alg = new BlackTensor();
+            var alg = new BlackTensor();
 
             alg.Conv2d(1, 4, 5, 5);
             alg.Activation(1);
@@ -122,55 +123,56 @@ namespace BlackTensor.ConvolutionNN
 
             alg.Learning(lp);
 
-            FileStream fs3 = new FileStream(t_image_file, FileMode.Open);
-            BinaryReader t_byte_image = new BinaryReader(fs3);
-
-            FileStream fs4 = new FileStream(t_label_file, FileMode.Open);
-            BinaryReader t_byte_label = new BinaryReader(fs4);
-
-            for (int j = 0; j < 10000; j++)
+            using (var fs3 = new FileStream(tImageFile, FileMode.Open))
+            using (var fs4 = new FileStream(tLabelFile, FileMode.Open))
             {
-                l_data[j] = t_byte_label.ReadByte();
-                for (int i = 0; i < 784; i++)
+                var tByteImage = new BinaryReader(fs3);
+                var tByteLabel = new BinaryReader(fs4);
+
+                for (var j = 0; j < 10000; j++)
                 {
-                    i_data[j][i] = t_byte_image.ReadByte();
-                }
-            }
-
-            for (int k = 0; k < 10000 - 8; k++)
-            {
-                label_data[k] = l_data[k + 8];
-
-                for (int j = 0; j < 28; j++)
-                {
-                    for (int i = 0; i < 14; i++)
+                    lData[j] = tByteLabel.ReadByte();
+                    for (var i = 0; i < 784; i++)
                     {
-                        int p = i + j * 28;
-                        int q = (i + 14) + j * 28;
-                        image_data[k][q] = i_data[k][p];
-                    }
-
-                    for (int i = 14; i < 28; i++)
-                    {
-                        int p = i + j * 28;
-                        int q = (i - 14) + j * 28;
-                        image_data[k][q] = i_data[k][p];
+                        iData[j][i] = tByteImage.ReadByte();
                     }
                 }
             }
 
-            double[] test = new double[784];
-            for (int i = 0; i < 784; i++)
+            for (var k = 0; k < 10000 - 8; k++)
             {
-                test[i] = image_data[0][i];
+                labelData[k] = lData[k + 8];
+
+                for (var j = 0; j < 28; j++)
+                {
+                    for (var i = 0; i < 14; i++)
+                    {
+                        var p = i + j * 28;
+                        var q = (i + 14) + j * 28;
+                        imageData[k][q] = iData[k][p];
+                    }
+
+                    for (var i = 14; i < 28; i++)
+                    {
+                        var p = i + j * 28;
+                        var q = (i - 14) + j * 28;
+                        imageData[k][q] = iData[k][p];
+                    }
+                }
+            }
+
+            var test = new double[784];
+            for (var i = 0; i < 784; i++)
+            {
+                test[i] = imageData[0][i];
                 test[i] /= 255.0;
             }
 
-            double[] result = alg.Evaluate(test);
+            var result = alg.Evaluate(test);
 
-            for (int i = 0; i < result.Length; i++)
+            foreach (var t in result)
             {
-                Console.WriteLine(result[i]);
+                Console.WriteLine(t);
             }
             Console.ReadLine();
         }

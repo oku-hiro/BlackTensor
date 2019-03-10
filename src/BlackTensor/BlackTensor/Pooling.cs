@@ -1,134 +1,165 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace BlackTensor
 {
-    class Pooling
+    public class Pooling : BaseAnalysis
     {
-        public int input_unit;
-        public int output_unit;
-        public int input_x;
-        public int input_y;
-        public int size_x;
-        public int size_y;
-        public int input_channel;
-        public int output_channel;
-        public int output_x;
-        public int output_y;
-        public int batch_sample;
-        public double[][] input;
-        public double[][] output;
-        public double[][] next_delta;
-        public double[][] this_delta;
-        public double[][] pre_grad;
-        public double[][] this_grad;
+        #region プロパティ
+        public Int2D Input2D { get; }
+        public Int2D Size2D { get; }
+        public Int2D Output2D { get; }
 
-        int input_xy;
-        int output_xy;
-        int[][] w;
+        public int InputChannel { get; }
+        public int OutputChannel { get; }
+        #endregion
 
-        public Pooling()
-        {}
 
-        public void Setting()
+        //private readonly int _inputXy;
+        //private readonly int _outputXy;
+        private readonly int[][] _w;
+
+        #region 初期化
+        /// <inheritdoc />
+        /// <summary>
+        /// 初期化します。
+        /// </summary>
+        public Pooling() {}
+        /// <inheritdoc />
+        /// <summary>
+        /// 指定した値を使用して、初期化します。
+        /// </summary>
+        /// <param name="batchSample"></param>
+        /// <param name="inputX"></param>
+        /// <param name="inputY"></param>
+        /// <param name="sizeX"></param>
+        /// <param name="sizeY"></param>
+        /// <param name="inputChannel"></param>
+        public Pooling(int batchSample, int inputX, int inputY, int sizeX, int sizeY, int inputChannel) : 
+            base(inputX * inputY * inputChannel, (inputX /sizeX) * (inputY / sizeY) * inputChannel, batchSample)
         {
-            input_xy = input_x * input_y;
-            output_channel = input_channel;
-            output_x = input_x / size_x;
-            output_y = input_y / size_y;
-            output_xy = output_x * output_y;
-            input_unit = input_channel * input_xy;
-            output_unit = output_channel * output_xy;
+            this.Input2D = new Int2D(inputX, inputY);
+            this.Size2D = new Int2D(sizeX, sizeY);
+            this.Output2D = new Int2D(this.Input2D.X / this.Size2D.X, this.Input2D.Y / this.Size2D.Y);
+            this.InputChannel = inputChannel;
+            this.OutputChannel = inputChannel;
 
-            input = new double[batch_sample][];
-            output = new double[batch_sample][];
-            next_delta = new double[batch_sample][];
-            this_delta = new double[batch_sample][];
-            pre_grad = new double[batch_sample][];
-            this_grad = new double[batch_sample][];
-            w = new int[batch_sample][];
+            this._w = new int[batchSample][];
 
-            for (int i = 0; i < batch_sample; i++)
+            for (var i = 0; i < batchSample; i++)
             {
-                input[i] = new double[input_unit];
-                output[i] = new double[output_unit];
-                next_delta[i] = new double[input_unit];
-                this_delta[i] = new double[output_unit];
-                pre_grad[i] = new double[input_unit];
-                this_grad[i] = new double[output_unit];
-                w[i] = new int[output_unit];
+                this._w[i] = new int[this.OutputUnit];
             }
-
         }
+        #endregion
 
-        public void Process()
+        #region メソッド
+        public Tuple<double[][], double[][]> Process(double[][] flow, double[][] grad)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.SetInputGradData(flow, grad);
+
+            var sw = new Stopwatch();
+            sw.Start();
+
+            for (var b = 0; b < this.BatchSample; b++)
             {
-                for (int i = 0; i < output_unit; i++)
+                for (var i = 0; i < this.OutputUnit; i++)
                 {
-                    this_grad[b][i] = 0.0;
-                    w[b][i] = -1;
+                    this.GradData.Output[b][i] = 0.0;
+                    //this_grad[b][i] = 0.0;
+                    _w[b][i] = -1;
                 }
            
-                for (int k = 0; k < input_channel; k++)
+                for (var k = 0; k < InputChannel; k++)
                 {
-                    int ki = k * input_xy;
-                    int kp = k * output_xy;
+                    var ki = k * this.Input2D.Xy;
+                    var kp = k * this.Output2D.Xy;
 
-                    for (int j = 0; j < output_y; j++)
+                    for (var j = 0; j < this.Output2D.Y; j++)
                     {
-                        for (int i = 0; i < output_x; i++)
+                        for (var i = 0; i < this.Output2D.X; i++)
                         {
-                            int start_x = i * size_x;
-                            int start_y = j * size_y;
-                            int max_x = start_x;
-                            int max_y = start_y;
+                            var startX = i * this.Size2D.X;
+                            var startY = j * this.Size2D.Y;
+                            var maxX = startX;
+                            var maxY = startY;
 
-                            double maximum = input[b][0];
-                            for (int y = 0; y < size_y; y++)
+                            var maximum = this.InputOutputData.Input[b][0];
+                            for (var y = 0; y < this.Size2D.Y; y++)
                             {
-                                for (int x = 0; x < size_x; x++)
+                                for (var x = 0; x < this.Size2D.X; x++)
                                 {
-                                    if (maximum < input[b][(start_x + x) + (start_y + y) * input_x + ki])
-                                    {
-                                        max_x = start_x + x;
-                                        max_y = start_y + y;
-                                        maximum = input[b][max_x + max_y * input_x + ki];
-                                    }
+                                    if (!(maximum < this.InputOutputData.Input[b][(startX + x) + (startY + y) * this.Input2D.X + ki])) continue;
+
+                                    maxX = startX + x;
+                                    maxY = startY + y;
+                                    maximum = this.InputOutputData.Input[b][maxX + maxY * this.Input2D.X + ki];
                                 }
                             }
 
-                            int p = i + j * output_x + kp;
-                            w[b][p] = max_x + max_y * input_x + ki;
-                            output[b][p] = maximum;
-                            this_grad[b][p] = 1.0;
+                            var p = i + j * this.Output2D.X + kp;
+                            _w[b][p] = maxX + maxY * this.Input2D.X + ki;
+                            this.InputOutputData.Output[b][p] = maximum;
+                            this.GradData.Output[b][p] = 1.0;
+                            //this_grad[b][p] = 1.0;
                         }
                     }
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Pooling)}.{nameof(this.Process)}：{sw.ElapsedMilliseconds}[ms]");
+
+            return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }
 
-        public void Delta_Propagation()
+        public double[][] DeltaPropagation(double[][] delta)
         {
-            for (int b = 0; b < batch_sample; b++)
+            this.DeltaData.SetInputData(delta);
+
+            var sw = new Stopwatch();
+            sw.Start();
+
+            for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
             {
-                for (int i = 0; i < input_unit; i++)
+                for (var i = 0; i < this.InputOutputData.Output[b].Length; i++)
                 {
-                    next_delta[b][i] = 0.0;
+                    this.DeltaData.Output[b][i] = 0.0;
                 }
 
-                for (int i = 0; i < output_unit; i++)
+                for (var i = 0; i < this.InputOutputData.Output[b].Length; i++)
                 {
-                    if (w[b][i] > -1)
+                    if (_w[b][i] > -1)
                     {
-                        next_delta[b][w[b][i]] += this_delta[b][i] * pre_grad[b][w[b][i]];
+                        this.DeltaData.Output[b][_w[b][i]] += this.DeltaData.Input[b][i] * this.GradData.Input[b][_w[b][i]];
                     }
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Pooling)}.{nameof(this.DeltaPropagation)}：{sw.ElapsedMilliseconds}[ms]");
+
+            return this.DeltaData.Output;
+        }
+        #endregion
+
+        /// <summary>
+        /// 内容を表す文字列を返します。
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(nameof(Pooling));
+            sb.AppendLine($"Input:({this.InputChannel},{this.Input2D.X},{this.Input2D.Y})");
+            sb.AppendLine($"Filter:({this.Size2D.X},{this.Size2D.Y})");
+            sb.Append($"Output:({this.OutputChannel},{this.Output2D.X},{this.Output2D.Y})");
+
+            return sb.ToString();
         }
     }
 }
