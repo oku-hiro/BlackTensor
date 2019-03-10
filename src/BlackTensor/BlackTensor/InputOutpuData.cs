@@ -42,13 +42,13 @@ namespace BlackTensor
             }
         }
 
-        public void SetInputData(double[][] data)
+        public void SetInputData(double[][] data, int offset1 = 0, int offset2 = 0)
         {
-            for (var i = 0; i < this.Input.GetLength(0); i++)
+            for (var i = 0; i < this.Input.GetLength(0) - offset1; i++)
             {
-                for (var j = 0; j < this.Input[i].Length; j++)
+                for (var j = 0; j < this.Input[i + offset1].Length - offset2; j++)
                 {
-                    this.Input[i][j] = data[i][j];
+                    this.Input[i + offset1][j + offset2] = data[i][j];
                 }
             }
         }

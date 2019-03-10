@@ -37,7 +37,7 @@ namespace BlackTensor
             for (var b = 0; b < this.BatchSample; b++)
             {
                 var z = Math.Sqrt(-2.0 * Math.Log(_rnd.NextDouble())) * Math.Cos(2.0 * Pi * _rnd.NextDouble());
-                for (var i = 0; i < this.OutputUnit; i++)
+                for (var i = 0; i < this.InputUnit; i++)
                 {
                     this.InputOutputData.Output[b][i] = this.InputOutputData.Input[b][2 * i] + z * this.InputOutputData.Input[b][2 * i + 1];
                     this.GradData.Output[b][i] = 1.0;

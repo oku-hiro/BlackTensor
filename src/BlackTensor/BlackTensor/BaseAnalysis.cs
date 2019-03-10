@@ -72,10 +72,10 @@ namespace BlackTensor
         #endregion
 
 
-        public void SetInputGradData(double[][] inputData, double[][] gradData)
+        public void SetInputGradData(double[][] inputData, double[][] gradData, int offset1 = 0, int offset2 = 0)
         {
-            this.InputOutputData.SetInputData(inputData);
-            this.GradData.SetInputData(gradData);
+            this.InputOutputData.SetInputData(inputData, offset1, offset2);
+            this.GradData.SetInputData(gradData, offset1, offset2);
         }
 
         

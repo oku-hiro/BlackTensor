@@ -86,7 +86,7 @@ namespace BlackTensor
         #region メソッド
         public Tuple<double[][], double[][]> Process(double[][] flow, double[][] grad)
         {
-            this.SetInputGradData(flow, grad);
+            this.SetInputGradData(flow, grad, 0, 1);
 
             for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
             {

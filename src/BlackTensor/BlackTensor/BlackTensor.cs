@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -310,9 +311,14 @@ namespace BlackTensor
             Setting();
             Summary();
 
+            long totalTime = 0;
+
             var group = 0;
             for (var k = 0; k < lp.epochs; k++)
             {
+                var sw = new Stopwatch();
+                sw.Start();
+
                 for (var i = 0; i < _batchSample; i++)
                 {
                     _batch[i] = i + _batchSample * group;
@@ -363,8 +369,18 @@ namespace BlackTensor
                     group = 0;
                 }
 
-                Console.WriteLine(_totalError[k]);
+                sw.Stop();
+
+                totalTime += sw.ElapsedMilliseconds;
+                var avgTime = totalTime / (k + 1);
+                var completeTime = avgTime * (lp.epochs - k - 1);
+
+                Console.WriteLine($"{k + 1}/{lp.epochs}：Error = {_totalError[k]}\tTime = {sw.ElapsedMilliseconds}[ms]\tComplete = {completeTime / 1000}[s]");
+
+                //Console.WriteLine(_totalError[k]);
             }
+
+            Console.WriteLine($"TotalTime：{totalTime}[ms]");
 
             SaveParameter();
 
@@ -469,7 +485,6 @@ namespace BlackTensor
                 {
                     case "conv2d":
                         result = _cp[cpStep].Process(_flow, _grad);
-                        cpStep++;
                         break;
                     case "conv2d_t":
                         result = _ct[ctStep].Process(_flow, _grad);

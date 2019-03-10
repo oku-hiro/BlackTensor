@@ -112,7 +112,7 @@ namespace BlackTensor
             {
                 for (var i = 0; i < this.DeltaData.Output[b].Length; i++)
                 {
-                    this.DeltaData.Output[b][i] = this.DeltaData.Output[b][i] * this.GradData.Input[b][i];
+                    this.DeltaData.Output[b][i] = this.DeltaData.Input[b][i] * this.GradData.Input[b][i];
                 }
             }
 

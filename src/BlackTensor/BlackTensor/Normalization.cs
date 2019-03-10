@@ -147,7 +147,7 @@ namespace BlackTensor
                                     if (0 > i + x || i + x >= this.Input2D.X) continue;
 
                                     average += this.InputOutputData.Input[b][(i + x) + (j + y) * this.Input2D.X + ki];
-                                    pixel += 1;
+                                    pixel++;
                                 }
                             }
                             average /= pixel;

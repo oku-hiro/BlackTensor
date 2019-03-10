@@ -103,7 +103,7 @@ namespace BlackTensor
                             var p = i + j * this.Output2D.X + kp;
                             _w[b][p] = maxX + maxY * this.Input2D.X + ki;
                             this.InputOutputData.Output[b][p] = maximum;
-                            this.GradData.Output[b][i] = 1.0;
+                            this.GradData.Output[b][p] = 1.0;
                             //this_grad[b][p] = 1.0;
                         }
                     }
@@ -128,7 +128,7 @@ namespace BlackTensor
                 {
                     if (_w[b][i] > -1)
                     {
-                        this.DeltaData.Output[b][_w[b][i]] += this.GradData.Output[b][i] * this.GradData.Input[b][_w[b][i]];
+                        this.DeltaData.Output[b][_w[b][i]] += this.DeltaData.Input[b][i] * this.GradData.Input[b][_w[b][i]];
                     }
                 }
             }
