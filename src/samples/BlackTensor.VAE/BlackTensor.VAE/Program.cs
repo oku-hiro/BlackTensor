@@ -12,8 +12,8 @@ namespace BlackTensor.VAE
     {
         static void Main(string[] args)
         {
-            string image_file = ".train-images.idx3-ubyte";
-            string label_file = ".train-labels.idx1-ubyte";
+            string image_file = "train-images.idx3-ubyte";
+            string label_file = "train-labels.idx1-ubyte";
 
             FileStream fs1 = new FileStream(image_file, FileMode.Open);
             BinaryReader byte_image = new BinaryReader(fs1);
@@ -69,7 +69,7 @@ namespace BlackTensor.VAE
                 image_data[i] = new double[784];
             }
 
-            for (int j = 0; j < 6000; j++)
+            for (int j = 0; j < 5000; j++)
             {
                 for (int i = 0; i < 784; i++)
                 {
@@ -129,20 +129,24 @@ namespace BlackTensor.VAE
             for (int i = 0; i < 784; i++)
             {
                 test[i] = image_data[0][i];
-                test[i] = 255.0;
+                test[i] /= 255.0;
             }
 
             double[] output = alg.Evaluate(test);
+
             Bitmap map = new Bitmap(28, 28);
             for (int j = 0; j < 28; j++)
             {
                 for (int i = 0; i < 28; i++)
                 {
-                    int d = (int)(255.0 * output[i] + 0.5);
+                    int p = i + j * 28;
+                    int d = (int)(255.0 * output[p] + 0.5);
                     map.SetPixel(i, j, Color.FromArgb(d, d, d));
                 }
             }
             map.Save("test.png");
+
+            Console.ReadLine();
         }
     }
 }

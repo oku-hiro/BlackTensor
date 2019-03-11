@@ -92,18 +92,36 @@ namespace BlackTensor
             var sw = new Stopwatch();
             sw.Start();
 
-            for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
+            Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
                 for (var j = 0; j < this.InputOutputData.Output[b].Length; j++)
                 {
                     this.InputOutputData.Output[b][j] = 0.0;
+
+                    var wData = this._w[j];
+                    var inputData = this.InputOutputData.Input[b];
+
                     for (var i = 0; i < this.InputOutputData.Input[b].Length; i++)
                     {
-                        this.InputOutputData.Output[b][j] += _w[j][i] * this.InputOutputData.Input[b][i];
+                        //this.InputOutputData.Output[b][j] += _w[j][i] * this.InputOutputData.Input[b][i];
+                        this.InputOutputData.Output[b][j] += wData[i] * inputData[i];
                     }
                     this.GradData.Output[b][j] = 1.0;
                 }
-            }
+            });
+
+            //for (var b = 0; b < this.InputOutputData.Output.GetLength(0); b++)
+            //{
+            //    for (var j = 0; j < this.InputOutputData.Output[b].Length; j++)
+            //    {
+            //        this.InputOutputData.Output[b][j] = 0.0;
+            //        for (var i = 0; i < this.InputOutputData.Input[b].Length; i++)
+            //        {
+            //            this.InputOutputData.Output[b][j] += _w[j][i] * this.InputOutputData.Input[b][i];
+            //        }
+            //        this.GradData.Output[b][j] = 1.0;
+            //    }
+            //}
 
             sw.Stop();
             Debug.WriteLine($"{nameof(Dense)}.{nameof(this.Process)}：{sw.ElapsedMilliseconds}[ms]");
@@ -118,18 +136,35 @@ namespace BlackTensor
             var sw = new Stopwatch();
             sw.Start();
 
-            for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
+            Parallel.For(0, this.DeltaData.Output.GetLength(0), b =>
             {
                 for (var j = 1; j < this.DeltaData.Output[b].Length; j++)
                 {
                     this.DeltaData.Output[b][j] = 0.0;
-                    
+
+                    var deltaData = this.DeltaData.Input[b];
+                    var gradData = this.GradData.Input[b];
+
                     for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
                     {
-                        this.DeltaData.Output[b][j] += _w[i][j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][j];
+                        //this.DeltaData.Output[b][j] += _w[i][j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][j];
+                        this.DeltaData.Output[b][j] += _w[i][j] * deltaData[i] * gradData[j];
                     }
                 }
-            }
+            });
+
+            //for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
+            //{
+            //    for (var j = 1; j < this.DeltaData.Output[b].Length; j++)
+            //    {
+            //        this.DeltaData.Output[b][j] = 0.0;
+                    
+            //        for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
+            //        {
+            //            this.DeltaData.Output[b][j] += _w[i][j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][j];
+            //        }
+            //    }
+            //}
 
             sw.Stop();
             Debug.WriteLine($"{nameof(Dense)}.{nameof(this.DeltaPropagation)}：{sw.ElapsedMilliseconds}[ms]");
@@ -156,9 +191,12 @@ namespace BlackTensor
             {
                 for (var j = 0; j < this._dw.GetLength(0); j++)
                 {
+                    var delta = this.DeltaData.Input[b][j];
+                    var inputData = this.InputOutputData.Input[b];
                     for (var i = 0; i < this._dw[j].Length; i++)
                     {
-                        _dw[j][i] += this.DeltaData.Input[b][j] * this.InputOutputData.Input[b][i];
+                        //_dw[j][i] += this.DeltaData.Input[b][j] * this.InputOutputData.Input[b][i];
+                        _dw[j][i] += delta * inputData[i];
                     }
                 }
             }
