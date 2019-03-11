@@ -30,6 +30,9 @@ namespace BlackTensor
         {
             this.SetInputGradData(flow, grad);
 
+            var sw = new Stopwatch();
+            sw.Start();
+
             for (var b = 0; b < this.BatchSample; b++)
             {
                 for (var i = 0; i < this.OutputUnit; i++)
@@ -38,6 +41,9 @@ namespace BlackTensor
                     this.GradData.Output[b][i] = this.InputOutputData.Output[b][i] * (1.0 - this.InputOutputData.Output[b][i]);
                 }
             }
+
+            sw.Stop();
+            Debug.WriteLine($"{nameof(Activation)}.{nameof(this.Sigmoid)}：{sw.ElapsedMilliseconds}[ms]");
 
             return new Tuple<double[][], double[][]>(this.InputOutputData.Output, this.GradData.Output);
         }

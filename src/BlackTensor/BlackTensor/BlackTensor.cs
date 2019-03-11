@@ -719,10 +719,15 @@ namespace BlackTensor
             Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(this.BackPropagation)}2：{sw.ElapsedMilliseconds}[ms]");
 
             sw.Restart();
-            for (var i = 0; i < _cpStock; i++)
+            Parallel.For(0, _cpStock, i =>
             {
                 _cp[i].BackPropagation();
-            }
+            });
+
+            //for (var i = 0; i < _cpStock; i++)
+            //{
+            //    _cp[i].BackPropagation();
+            //}
             sw.Stop();
             Debug.WriteLine($"{nameof(BlackTensor)}.{nameof(Conv2d)}.{nameof(this.BackPropagation)}：{sw.ElapsedMilliseconds}[ms]");
 

@@ -36,6 +36,7 @@ namespace BlackTensor
             {
                 this.Input[i] = new double[inputCount];
             }
+
             for (var i = 0; i < this.Output.GetLength(0); i++)
             {
                 this.Output[i] = new double[outputCount];

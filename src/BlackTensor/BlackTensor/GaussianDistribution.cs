@@ -41,7 +41,7 @@ namespace BlackTensor
             for (var b = 0; b < this.BatchSample; b++)
             {
                 var z = Math.Sqrt(-2.0 * Math.Log(_rnd.NextDouble())) * Math.Cos(2.0 * Pi * _rnd.NextDouble());
-                for (var i = 0; i < this.InputUnit; i++)
+                for (var i = 0; i < this.InputUnit / 2; i++)
                 {
                     this.InputOutputData.Output[b][i] = this.InputOutputData.Input[b][2 * i] + z * this.InputOutputData.Input[b][2 * i + 1];
                     this.GradData.Output[b][i] = 1.0;
@@ -63,7 +63,7 @@ namespace BlackTensor
 
             for (var b = 0; b < this.DeltaData.Output.GetLength(0); b++)
             {
-                for (var j = 0; j < this.DeltaData.Output[b].Length; j++)
+                for (var j = 0; j < this.DeltaData.Output[b].Length / 2; j++)
                 {
                     for (var i = 2 * j; i < 2 * (j + 1); i++)
                     {
@@ -73,7 +73,7 @@ namespace BlackTensor
             }
 
             sw.Stop();
-            Debug.WriteLine($"{nameof(DeltaPropagation)}.{nameof(this.DeltaPropagation)}：{sw.ElapsedMilliseconds}[ms]");
+            Debug.WriteLine($"{nameof(GaussianDistribution)}.{nameof(this.DeltaPropagation)}：{sw.ElapsedMilliseconds}[ms]");
 
             return this.DeltaData.Output;
         }

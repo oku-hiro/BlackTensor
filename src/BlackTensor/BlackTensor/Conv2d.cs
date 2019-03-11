@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -180,14 +181,17 @@ namespace BlackTensor
 
             Parallel.For(0, this.InputOutputData.Output.GetLength(0), b =>
             {
+                var inputData = this.InputOutputData.Input[b];
                 for (var j = 0; j < this.InputOutputData.Output[b].Length; j++)
                 {
                     this.InputOutputData.Output[b][j] = 0.0;
                     for (var i = 0; i < this._filter.Length; i++)
                     {
-                        if (_connection[j][i] > -1)
+                        var c = _connection[j][i];
+                        if (c > -1)
                         {
-                            this.InputOutputData.Output[b][j] += _filter[i] * this.InputOutputData.Input[b][_connection[j][i]];
+                            //this.InputOutputData.Output[b][j] += _filter[i] * this.InputOutputData.Input[b][c];
+                            this.InputOutputData.Output[b][j] += _filter[i] * inputData[c];
                         }
                     }
                     this.InputOutputData.Output[b][j] += _bias[j / this.Output2D.Xy];
@@ -234,14 +238,19 @@ namespace BlackTensor
                     this.DeltaData.Output[b][i] = 0.0;
                 }
 
+                var deltaData = this.DeltaData.Input[b];
+                var gradData = this.GradData.Input[b];
+
                 for (var j = 0; j < this._filter.Length; j++)
                 {
+                    var filterData = _filter[j];
                     for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
                     {
                         var c = _connection[i][j];
                         if (c > -1)
                         {
-                            this.DeltaData.Output[b][c] += _filter[j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][c];
+                            //this.DeltaData.Output[b][c] += _filter[j] * this.DeltaData.Input[b][i] * this.GradData.Input[b][c];
+                            this.DeltaData.Output[b][c] += filterData * deltaData[i] * gradData[c];
                         }
                         //if (_connection[i][j] > -1)
                         //{
@@ -304,6 +313,9 @@ namespace BlackTensor
 
             Parallel.For(0, this.BatchSample, b =>
             {
+                var deltaData = this.DeltaData.Input[b];
+                var inputData = this.InputOutputData.Input[b];
+
                 for (var j = 0; j < this._dFilter.Length; j++)
                 {
                     for (var i = 0; i < this.DeltaData.Input[b].Length; i++)
@@ -311,16 +323,19 @@ namespace BlackTensor
                         var c = _connection[i][j];
                         if (c > -1)
                         {
-                            ddFilter[b][j] += this.DeltaData.Input[b][i] * this.InputOutputData.Input[b][c];
+                            //ddFilter[b][j] += this.DeltaData.Input[b][i] * this.InputOutputData.Input[b][c];
+                            ddFilter[b][j] += deltaData[i] * inputData[c];
                         }
                     }
                 }
 
                 for (var j = 0; j < this.FilterChannel; j++)
                 {
+                    var value = j * this.Output2D.Xy;
                     for (var i = 0; i < this.Output2D.Xy; i++)
                     {
-                        ddBias[b][j] += this.DeltaData.Input[b][i + j * this.Output2D.Xy];
+                        //ddBias[b][j] += this.DeltaData.Input[b][i + j * this.Output2D.Xy];
+                        ddBias[b][j] += deltaData[i + value];
                     }
                 }
             });
