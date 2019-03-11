@@ -392,6 +392,7 @@ namespace BlackTensor
             for (int i = 0; i < output_unit; i++)
             {
                 output[i] = flow[0][i];
+                Console.WriteLine(output[i]);
             }
 
             return output;
